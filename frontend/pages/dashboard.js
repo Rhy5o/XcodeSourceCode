@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Navbar from '../components/Navbar';
 import MatchCard from '../components/MatchCard';
+import BadgeGrid from '../components/BadgeGrid';
 import { api, getToken, getUser, logout } from '../lib/api';
 
 export default function Dashboard() {
@@ -10,6 +11,8 @@ export default function Dashboard() {
     const [user, setUserState] = useState(null);
     const [cars, setCars] = useState([]);
     const [matches, setMatches] = useState([]);
+    const [badges, setBadges] = useState([]);
+    const [seasonRank, setSeasonRank] = useState(null);
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -17,12 +20,17 @@ export default function Dashboard() {
             router.replace('/login');
             return;
         }
-        setUserState(getUser());
+        const currentUser = getUser();
+        setUserState(currentUser);
 
-        Promise.all([api.getGarage(), api.getMyMatches()])
-            .then(([carsRes, matchesRes]) => {
+        Promise.all([api.getGarage(), api.getMyMatches(), api.getUserProfile(currentUser.id)])
+            .then(([carsRes, matchesRes, profileRes]) => {
                 setCars(carsRes.cars);
                 setMatches(matchesRes.matches);
+                setBadges(
+                    profileRes.badges.slice(0, 5).map((b) => ({ ...b, earned: true, earnedAt: b.earned_at }))
+                );
+                setSeasonRank(profileRes.currentSeason.rank);
             })
             .catch((err) => setError(err.message));
     }, [router]);
@@ -39,11 +47,27 @@ export default function Dashboard() {
             <Navbar />
             <div className="page stack">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h1>Welcome back{user ? `, ${user.username}` : ''}</h1>
+                    <h1>
+                        Welcome back
+                        {user ? (
+                            <>
+                                , <Link href={`/users/${user.id}`}>{user.username}</Link>
+                            </>
+                        ) : (
+                            ''
+                        )}
+                    </h1>
                     <button className="button secondary" onClick={handleLogout}>
                         Log out
                     </button>
                 </div>
+
+                {seasonRank && (
+                    <p className="muted" style={{ marginTop: -8 }}>
+                        Ranked #{seasonRank} this season ·{' '}
+                        <Link href={user ? `/users/${user.id}` : '#'}>View full profile</Link>
+                    </p>
+                )}
 
                 {error && <p className="error-text">{error}</p>}
 
@@ -74,6 +98,11 @@ export default function Dashboard() {
                             )}
                         </p>
                     )}
+                </section>
+
+                <section>
+                    <h2>Badges</h2>
+                    <BadgeGrid badges={badges} />
                 </section>
 
                 <section>

@@ -1,5 +1,6 @@
 const pool = require('../db/pool');
 const modService = require('./modService');
+const seasonService = require('./seasonService');
 
 const XP_PER_WIN = 50;
 const XP_PER_LOSS = 0; // "Winners get XP. Losers get 0 XP."
@@ -100,31 +101,42 @@ async function storeMatchResult(car1Id, car2Id, winnerId, timestamp = new Date()
     return result.rows[0];
 }
 
-async function upsertXp(userId, xpDelta, isWin) {
+async function upsertXp(userId, seasonNumber, xpDelta, isWin) {
     await pool.query(
-        `INSERT INTO user_xp (user_id, total_xp, wins, losses)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (user_id) DO UPDATE
+        `INSERT INTO user_xp (user_id, season_number, total_xp, wins, losses)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (user_id, season_number) DO UPDATE
          SET total_xp = user_xp.total_xp + EXCLUDED.total_xp,
              wins = user_xp.wins + EXCLUDED.wins,
              losses = user_xp.losses + EXCLUDED.losses,
              updated_at = now()`,
-        [userId, xpDelta, isWin ? 1 : 0, isWin ? 0 : 1]
+        [userId, seasonNumber, xpDelta, isWin ? 1 : 0, isWin ? 0 : 1]
     );
 }
 
 /**
  * Awards XP for one match: the winner gets XP_PER_WIN, each loser gets
- * XP_PER_LOSS (0). matchId isn't persisted anywhere yet (no xp_awards audit
- * table) but is accepted per spec for future logging/idempotency use.
+ * XP_PER_LOSS (0), both against the current season. matchId isn't persisted
+ * anywhere yet (no xp_awards audit table) but is accepted per spec for
+ * future logging/idempotency use. Badge criteria are re-checked for the
+ * winner afterward (Stage 6) — lazily required to avoid a circular
+ * top-level require, since badgeService itself calls back into this module
+ * for win-streak lookups.
  */
 // eslint-disable-next-line no-unused-vars
 async function awardXP(winnerUserId, loserUserIds, matchId) {
+    const seasonNumber = await seasonService.getCurrentSeason();
+
     if (winnerUserId) {
-        await upsertXp(winnerUserId, XP_PER_WIN, true);
+        await upsertXp(winnerUserId, seasonNumber, XP_PER_WIN, true);
     }
     for (const loserUserId of loserUserIds) {
-        await upsertXp(loserUserId, XP_PER_LOSS, false);
+        await upsertXp(loserUserId, seasonNumber, XP_PER_LOSS, false);
+    }
+
+    if (winnerUserId) {
+        const badgeService = require('./badgeService');
+        await badgeService.checkAndAwardBadges(winnerUserId);
     }
 }
 

@@ -7,9 +7,9 @@ const router = express.Router();
 
 router.get('/', async (req, res, next) => {
     try {
-        const limit = Math.min(Number(req.query.limit) || 50, 100);
-        const leaderboard = await xpService.getLeaderboard(limit);
-        res.json({ leaderboard });
+        const { season, page, limit } = req.query;
+        const result = await xpService.getLeaderboard({ season, page, limit });
+        res.json(result);
     } catch (err) {
         next(err);
     }

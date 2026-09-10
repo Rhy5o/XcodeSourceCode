@@ -87,20 +87,69 @@ CREATE TABLE matches (
     CONSTRAINT different_cars CHECK (car1_id <> car2_id)
 );
 
+-- Stage 6: user_xp becomes one row per (user, season) rather than one row
+-- per user, so historical seasons stay queryable without archiving —
+-- resetSeason() just advances game_state.current_season; nothing is
+-- deleted, and a user's first score in the new season simply inserts a
+-- fresh row. Table was empty (see comment above the Stage 5 block), so
+-- another clean drop + recreate rather than an ALTER.
 DROP TABLE IF EXISTS user_xp;
 CREATE TABLE user_xp (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id         UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    season_number   INTEGER NOT NULL DEFAULT 1,
     total_xp        INTEGER NOT NULL DEFAULT 0,
     wins            INTEGER NOT NULL DEFAULT 0,
     losses          INTEGER NOT NULL DEFAULT 0,
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_id, season_number)
 );
+
+-- Singleton row tracking which season is "current". The id/CHECK pair is
+-- the standard Postgres pattern for enforcing at most one row.
+CREATE TABLE IF NOT EXISTS game_state (
+    id              BOOLEAN PRIMARY KEY DEFAULT true,
+    current_season  INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT single_row CHECK (id)
+);
+INSERT INTO game_state (id, current_season)
+VALUES (true, 1)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS badges (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    slug            VARCHAR(50) NOT NULL UNIQUE,
+    name            VARCHAR(50) NOT NULL,
+    description     TEXT NOT NULL,
+    icon_url        TEXT, -- placeholder emoji for now; a real asset URL later
+    criteria        TEXT NOT NULL -- human-readable rule, checked in badgeService.js
+);
+
+CREATE TABLE IF NOT EXISTS user_badges (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    badge_id        UUID NOT NULL REFERENCES badges(id) ON DELETE CASCADE,
+    earned_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_id, badge_id)
+);
+
+INSERT INTO badges (slug, name, description, icon_url, criteria) VALUES
+    ('first_blood', 'First Blood', 'Win your first race', '🩸', 'wins >= 1'),
+    ('century_club', 'Century Club', 'Win 100 races', '💯', 'wins >= 100'),
+    ('thousand_xp', 'Thousand XP', 'Reach 1000 total XP', '⭐', 'total_xp >= 1000'),
+    ('undefeated', 'Undefeated', 'Win 10 races in a row with no losses', '🏆', 'current win streak >= 10'),
+    ('speedster', 'Speedster', 'Own a car with 0-60 under 4 seconds', '⚡', 'any car.zero_to_sixty < 4'),
+    ('power', 'Power', 'Own a car with over 400 BHP', '🔥', 'any car.bhp > 400'),
+    ('modded_beast', 'Modded Beast', 'Install 5 or more mods on a single car', '🔧', 'any car mod count >= 5')
+ON CONFLICT (slug) DO NOTHING;
 
 CREATE INDEX IF NOT EXISTS idx_cars_user_id ON cars(user_id);
 CREATE INDEX IF NOT EXISTS idx_mods_car_id ON mods(car_id);
 CREATE INDEX IF NOT EXISTS idx_matches_car1 ON matches(car1_id);
 CREATE INDEX IF NOT EXISTS idx_matches_car2 ON matches(car2_id);
 CREATE INDEX IF NOT EXISTS idx_matches_timestamp ON matches("timestamp" DESC);
-CREATE INDEX IF NOT EXISTS idx_user_xp_total_xp ON user_xp(total_xp DESC);
+CREATE INDEX IF NOT EXISTS idx_user_xp_season_xp ON user_xp(season_number, total_xp DESC);
+CREATE INDEX IF NOT EXISTS idx_user_xp_user_id ON user_xp(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_badges_user_id ON user_badges(user_id);
 CREATE INDEX IF NOT EXISTS idx_users_online ON users(is_online) WHERE is_online = true;
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(lower(username));

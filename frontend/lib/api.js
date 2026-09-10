@@ -75,11 +75,16 @@ export const api = {
     },
     deleteMod: (modId) => apiFetch(`/api/mods/${modId}`, { method: 'DELETE' }),
     getModCatalog: () => apiFetch('/api/mods/catalog'),
-    getLeaderboard: () => apiFetch('/api/leaderboard'),
+    getLeaderboard: (season = 'current', page = 1, limit = 25) =>
+        apiFetch(`/api/leaderboard?season=${encodeURIComponent(season)}&page=${page}&limit=${limit}`),
     getMyMatches: () => apiFetch('/api/leaderboard/matches/mine'),
     getShowStatus: () => apiFetch('/api/show/status'),
     goOnline: () => apiFetch('/api/show/go-online', { method: 'PUT' }),
-    goOffline: () => apiFetch('/api/show/go-offline', { method: 'PUT' })
+    goOffline: () => apiFetch('/api/show/go-offline', { method: 'PUT' }),
+    getUserProfile: (userId) => apiFetch(`/api/users/${userId}/profile`),
+    getUserBadges: (userId) => apiFetch(`/api/users/${userId}/badges`),
+    getUserMatches: (userId, limit = 10) => apiFetch(`/api/users/${userId}/matches?limit=${limit}`),
+    searchUsers: (query) => apiFetch(`/api/users/search?q=${encodeURIComponent(query)}`)
 };
 
 export { getToken, setToken, getUser, setUser, logout, API_URL };

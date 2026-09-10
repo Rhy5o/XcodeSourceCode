@@ -8,6 +8,8 @@ const carRoutes = require('./routes/cars');
 const modRoutes = require('./routes/mods');
 const leaderboardRoutes = require('./routes/leaderboard');
 const showRoutes = require('./routes/show');
+const usersRoutes = require('./routes/users');
+const adminRoutes = require('./routes/admin');
 const { startScheduler } = require('./services/schedulerService');
 
 const app = express();
@@ -29,6 +31,8 @@ app.use('/api/cars', carRoutes);
 app.use('/api/mods', modRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/show', showRoutes);
+app.use('/api/users', usersRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.use((req, res) => {
     res.status(404).json({ error: 'Not found' });
