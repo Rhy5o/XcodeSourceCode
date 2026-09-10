@@ -12,6 +12,14 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Stage 5: "online" status for the race scheduler. is_online is the
+-- explicit go-online/go-offline toggle; last_activity is refreshed on
+-- go-online and on every GET /api/show/status poll while online, so a
+-- browser tab left open (or closed without going offline) naturally
+-- falls out of getOnlineUsers()'s staleness window.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_online BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_activity TIMESTAMPTZ;
+
 CREATE TABLE IF NOT EXISTS cars (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -62,25 +70,28 @@ ALTER TABLE mods DROP COLUMN IF EXISTS weight_delta_kg;
 ALTER TABLE mods DROP COLUMN IF EXISTS image_url;
 ALTER TABLE mods ALTER COLUMN mod_type SET NOT NULL;
 
-CREATE TABLE IF NOT EXISTS matches (
+-- Stage 5 replaced the Stage 1 matches/user_xp shape (car_a_id/car_b_id +
+-- user_a_id/user_b_id + stat_compared + a pending/completed round window)
+-- with the simpler shape the race engine spec calls for: a match is just
+-- two cars, a winning car (or NULL for a draw), and when it happened; the
+-- owning user is derived by joining cars when needed (see raceEngine.js).
+-- Both tables had zero rows when this migration was written, so a clean
+-- drop + recreate is safe and avoids fragile column-rename gymnastics.
+DROP TABLE IF EXISTS matches;
+CREATE TABLE matches (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    car_a_id        UUID NOT NULL REFERENCES cars(id) ON DELETE CASCADE,
-    car_b_id        UUID NOT NULL REFERENCES cars(id) ON DELETE CASCADE,
-    user_a_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    user_b_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    stat_compared   VARCHAR(30) NOT NULL, -- bhp | top_speed_mph | zero_to_sixty | weight_kg | handling_score
-    winner_car_id   UUID REFERENCES cars(id),
-    status          VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending | completed
-    round_started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    round_ends_at   TIMESTAMPTZ NOT NULL,
-    completed_at    TIMESTAMPTZ,
-    CONSTRAINT different_cars CHECK (car_a_id <> car_b_id)
+    car1_id         UUID NOT NULL REFERENCES cars(id) ON DELETE CASCADE,
+    car2_id         UUID NOT NULL REFERENCES cars(id) ON DELETE CASCADE,
+    winner_id       UUID REFERENCES cars(id), -- winning car's id; NULL = draw
+    "timestamp"     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT different_cars CHECK (car1_id <> car2_id)
 );
 
-CREATE TABLE IF NOT EXISTS user_xp (
-    user_id         UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    xp              INTEGER NOT NULL DEFAULT 0,
-    level           INTEGER NOT NULL DEFAULT 1,
+DROP TABLE IF EXISTS user_xp;
+CREATE TABLE user_xp (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    total_xp        INTEGER NOT NULL DEFAULT 0,
     wins            INTEGER NOT NULL DEFAULT 0,
     losses          INTEGER NOT NULL DEFAULT 0,
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -88,7 +99,8 @@ CREATE TABLE IF NOT EXISTS user_xp (
 
 CREATE INDEX IF NOT EXISTS idx_cars_user_id ON cars(user_id);
 CREATE INDEX IF NOT EXISTS idx_mods_car_id ON mods(car_id);
-CREATE INDEX IF NOT EXISTS idx_matches_user_a ON matches(user_a_id);
-CREATE INDEX IF NOT EXISTS idx_matches_user_b ON matches(user_b_id);
-CREATE INDEX IF NOT EXISTS idx_matches_status ON matches(status);
-CREATE INDEX IF NOT EXISTS idx_user_xp_xp ON user_xp(xp DESC);
+CREATE INDEX IF NOT EXISTS idx_matches_car1 ON matches(car1_id);
+CREATE INDEX IF NOT EXISTS idx_matches_car2 ON matches(car2_id);
+CREATE INDEX IF NOT EXISTS idx_matches_timestamp ON matches("timestamp" DESC);
+CREATE INDEX IF NOT EXISTS idx_user_xp_total_xp ON user_xp(total_xp DESC);
+CREATE INDEX IF NOT EXISTS idx_users_online ON users(is_online) WHERE is_online = true;

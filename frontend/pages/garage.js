@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import Navbar from '../components/Navbar';
 import CarGrid from '../components/CarGrid';
 import { api, getToken } from '../lib/api';
@@ -9,6 +10,7 @@ export default function Garage() {
     const [cars, setCars] = useState(null); // null = still loading
     const [error, setError] = useState('');
     const [activatingCarId, setActivatingCarId] = useState(null);
+    const [isUserOnline, setIsUserOnline] = useState(false);
 
     const [showRegisterForm, setShowRegisterForm] = useState(false);
     const [regPlate, setRegPlate] = useState('');
@@ -21,6 +23,9 @@ export default function Garage() {
             return;
         }
         loadGarage();
+        api.getShowStatus()
+            .then((res) => setIsUserOnline(res.isUserOnline))
+            .catch(() => {});
     }, [router]);
 
     function loadGarage() {
@@ -65,13 +70,28 @@ export default function Garage() {
             <div className="mx-auto max-w-5xl px-4 py-8 text-gray-100">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <h1 className="text-2xl font-bold">Garage</h1>
-                    <button
-                        onClick={() => setShowRegisterForm((s) => !s)}
-                        className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-400"
-                    >
-                        Register New Car
-                    </button>
+                    <div className="flex gap-2">
+                        <Link
+                            href="/show"
+                            className="rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-100 transition hover:border-gray-500"
+                        >
+                            Go to Show
+                        </Link>
+                        <button
+                            onClick={() => setShowRegisterForm((s) => !s)}
+                            className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-400"
+                        >
+                            Register New Car
+                        </button>
+                    </div>
                 </div>
+
+                {isUserOnline && (
+                    <div className="mt-4 flex items-center gap-2 rounded-lg border border-emerald-800 bg-emerald-950/40 px-4 py-2 text-sm text-emerald-300">
+                        <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                        You&apos;re online — your active car is racing at the show.
+                    </div>
+                )}
 
                 {showRegisterForm && (
                     <form

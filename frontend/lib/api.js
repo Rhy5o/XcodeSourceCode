@@ -76,7 +76,10 @@ export const api = {
     deleteMod: (modId) => apiFetch(`/api/mods/${modId}`, { method: 'DELETE' }),
     getModCatalog: () => apiFetch('/api/mods/catalog'),
     getLeaderboard: () => apiFetch('/api/leaderboard'),
-    getMyMatches: () => apiFetch('/api/leaderboard/matches/mine')
+    getMyMatches: () => apiFetch('/api/leaderboard/matches/mine'),
+    getShowStatus: () => apiFetch('/api/show/status'),
+    goOnline: () => apiFetch('/api/show/go-online', { method: 'PUT' }),
+    goOffline: () => apiFetch('/api/show/go-offline', { method: 'PUT' })
 };
 
 export { getToken, setToken, getUser, setUser, logout, API_URL };

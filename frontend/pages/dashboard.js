@@ -83,7 +83,7 @@ export default function Dashboard() {
                     ) : (
                         <div className="stack">
                             {matches.map((match) => (
-                                <MatchCard key={match.id} match={match} currentUserId={user && user.id} />
+                                <MatchCard key={match.id} match={match} />
                             ))}
                         </div>
                     )}

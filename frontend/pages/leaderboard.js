@@ -26,7 +26,6 @@ export default function Leaderboard() {
                                 <th>Driver</th>
                                 <th>Reg plate</th>
                                 <th>XP</th>
-                                <th>Level</th>
                                 <th>W / L</th>
                             </tr>
                         </thead>
@@ -36,8 +35,7 @@ export default function Leaderboard() {
                                     <td>{i + 1}</td>
                                     <td>{row.username}</td>
                                     <td className="muted">{row.reg_plate}</td>
-                                    <td>{row.xp}</td>
-                                    <td>{row.level}</td>
+                                    <td>{row.total_xp}</td>
                                     <td>
                                         {row.wins} / {row.losses}
                                     </td>

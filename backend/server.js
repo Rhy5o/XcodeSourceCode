@@ -7,7 +7,8 @@ const authRoutes = require('./routes/auth');
 const carRoutes = require('./routes/cars');
 const modRoutes = require('./routes/mods');
 const leaderboardRoutes = require('./routes/leaderboard');
-const { runMatchRound } = require('./services/matchService');
+const showRoutes = require('./routes/show');
+const { startScheduler } = require('./services/schedulerService');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -27,6 +28,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/cars', carRoutes);
 app.use('/api/mods', modRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/show', showRoutes);
 
 app.use((req, res) => {
     res.status(404).json({ error: 'Not found' });
@@ -44,13 +46,7 @@ if (require.main === module) {
         console.log(`Backend API listening on http://localhost:${PORT}`);
     });
 
-    const matchIntervalMs = MATCH_INTERVAL_MINUTES * 60 * 1000;
-    setInterval(() => {
-        runMatchRound(MATCH_INTERVAL_MINUTES).catch((err) => {
-            console.error('Match round failed:', err.message);
-        });
-    }, matchIntervalMs);
-    console.log(`Match rounds will run every ${MATCH_INTERVAL_MINUTES} minute(s).`);
+    startScheduler(MATCH_INTERVAL_MINUTES);
 }
 
 module.exports = app;
