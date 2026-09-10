@@ -30,6 +30,11 @@ CREATE TABLE IF NOT EXISTS cars (
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Populated by dvlaService.lookupByRegPlate() when a car is registered via
+-- POST /api/cars/register (added after the initial cars table).
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS engine_size VARCHAR(20);
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS fuel_type VARCHAR(30);
+
 CREATE TABLE IF NOT EXISTS mods (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     car_id          UUID NOT NULL REFERENCES cars(id) ON DELETE CASCADE,

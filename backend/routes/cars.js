@@ -24,6 +24,34 @@ router.get('/public/all', async (req, res, next) => {
     }
 });
 
+router.get('/garage', requireAuth, async (req, res, next) => {
+    try {
+        const cars = await carService.listCarsForUser(req.user.id);
+        res.json({ cars });
+    } catch (err) {
+        next(err);
+    }
+});
+
+router.post('/register', requireAuth, async (req, res, next) => {
+    try {
+        const { regPlate } = req.body;
+        const car = await carService.registerCarFromDvla(req.user.id, regPlate);
+        res.status(201).json({ car });
+    } catch (err) {
+        next(err);
+    }
+});
+
+router.put('/:carId/activate', requireAuth, async (req, res, next) => {
+    try {
+        const car = await carService.activateCar(req.user.id, req.params.carId);
+        res.json({ car });
+    } catch (err) {
+        next(err);
+    }
+});
+
 router.get('/:carId', async (req, res, next) => {
     try {
         const car = await carService.getCarById(req.params.carId);

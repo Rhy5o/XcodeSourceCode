@@ -1,5 +1,6 @@
 const pool = require('../db/pool');
 const { normalize, isValidUkRegPlate } = require('./regPlateService');
+const dvlaService = require('./dvlaService');
 
 async function listCarsForUser(userId) {
     const result = await pool.query(
@@ -57,6 +58,63 @@ async function createCar(userId, data) {
     return result.rows[0];
 }
 
+async function registerCarFromDvla(userId, regPlate) {
+    if (!regPlate) {
+        throw httpError(400, 'regPlate is required');
+    }
+    if (!isValidUkRegPlate(regPlate)) {
+        throw httpError(400, 'regPlate is not a recognised UK registration plate');
+    }
+
+    const normalizedPlate = normalize(regPlate);
+    const vehicle = await dvlaService.lookupByRegPlate(normalizedPlate);
+
+    const countResult = await pool.query(`SELECT COUNT(*)::int AS count FROM cars WHERE user_id = $1`, [userId]);
+    const isFirstCar = countResult.rows[0].count === 0;
+
+    const result = await pool.query(
+        `INSERT INTO cars (user_id, reg_plate, make, model, bhp, zero_to_sixty, weight_kg, engine_size, fuel_type, is_active)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         RETURNING *`,
+        [
+            userId,
+            normalizedPlate,
+            vehicle.make,
+            vehicle.model,
+            vehicle.bhp,
+            vehicle.acceleration0to60,
+            vehicle.weight,
+            vehicle.engineSize,
+            vehicle.fuelType,
+            isFirstCar
+        ]
+    );
+    return result.rows[0];
+}
+
+async function activateCar(userId, carId) {
+    const car = await getCarById(carId);
+    if (!car) throw httpError(404, 'Car not found');
+    if (car.user_id !== userId) throw httpError(403, 'You do not own this car');
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        await client.query(`UPDATE cars SET is_active = false, updated_at = now() WHERE user_id = $1`, [userId]);
+        const result = await client.query(
+            `UPDATE cars SET is_active = true, updated_at = now() WHERE id = $1 RETURNING *`,
+            [carId]
+        );
+        await client.query('COMMIT');
+        return result.rows[0];
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+}
+
 async function updateCar(userId, carId, data) {
     const car = await getCarById(carId);
     if (!car) throw httpError(404, 'Car not found');
@@ -109,4 +167,13 @@ function httpError(status, message) {
     return err;
 }
 
-module.exports = { listCarsForUser, listPublicCars, getCarById, createCar, updateCar, deleteCar };
+module.exports = {
+    listCarsForUser,
+    listPublicCars,
+    getCarById,
+    createCar,
+    registerCarFromDvla,
+    activateCar,
+    updateCar,
+    deleteCar
+};
