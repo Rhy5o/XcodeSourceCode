@@ -115,6 +115,20 @@ async function activateCar(userId, carId) {
     }
 }
 
+// Lazily requires modService (rather than importing it at module scope) so
+// this file and modService.js can each depend on the other's exports
+// without a circular-require load-order problem.
+async function getCarWithMods(carId) {
+    const modService = require('./modService');
+
+    const car = await getCarById(carId);
+    if (!car) return null;
+
+    const mods = await modService.listModsForCar(carId);
+    const finalStats = modService.calculateCarFinalStats(car, mods);
+    return { car, mods, finalStats };
+}
+
 async function updateCar(userId, carId, data) {
     const car = await getCarById(carId);
     if (!car) throw httpError(404, 'Car not found');
@@ -174,6 +188,7 @@ module.exports = {
     createCar,
     registerCarFromDvla,
     activateCar,
+    getCarWithMods,
     updateCar,
     deleteCar
 };

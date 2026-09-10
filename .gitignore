@@ -34,3 +34,7 @@ frontend/out/
 
 # Backend logs
 backend/*.log
+
+# Uploaded mod photos (local disk storage for now; move to S3 later)
+backend/uploads/*
+!backend/uploads/.gitkeep

@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 
 const authRoutes = require('./routes/auth');
 const carRoutes = require('./routes/cars');
@@ -18,6 +19,9 @@ app.use(express.json());
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', uptime: process.uptime() });
 });
+
+// Local disk storage for mod photos (temporary — will move to S3 later).
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/cars', carRoutes);

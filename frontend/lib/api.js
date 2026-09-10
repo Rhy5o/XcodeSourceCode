@@ -36,8 +36,11 @@ function logout() {
 
 async function apiFetch(path, options = {}) {
     const token = getToken();
+    const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
     const headers = {
-        'Content-Type': 'application/json',
+        // Omit Content-Type for FormData bodies — the browser sets it
+        // itself, including the multipart boundary, which we can't supply.
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
         ...(options.headers || {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {})
     };
@@ -58,11 +61,20 @@ export const api = {
     getCars: () => apiFetch('/api/cars'),
     getPublicCars: () => apiFetch('/api/cars/public/all'),
     getGarage: () => apiFetch('/api/cars/garage'),
-    getCarDetail: (carId) => apiFetch(`/api/cars/${carId}`),
+    getCarWithMods: (carId) => apiFetch(`/api/cars/${carId}`),
     registerCar: (regPlate) => apiFetch('/api/cars/register', { method: 'POST', body: JSON.stringify({ regPlate }) }),
     activateCar: (carId) => apiFetch(`/api/cars/${carId}/activate`, { method: 'PUT' }),
     createCar: (data) => apiFetch('/api/cars', { method: 'POST', body: JSON.stringify(data) }),
-    addMod: (carId, data) => apiFetch(`/api/cars/${carId}/mods`, { method: 'POST', body: JSON.stringify(data) }),
+    addMod: (carId, modType, description, file) => {
+        const formData = new FormData();
+        formData.append('carId', carId);
+        formData.append('modType', modType);
+        if (description) formData.append('description', description);
+        if (file) formData.append('photo', file);
+        return apiFetch('/api/mods', { method: 'POST', body: formData });
+    },
+    deleteMod: (modId) => apiFetch(`/api/mods/${modId}`, { method: 'DELETE' }),
+    getModCatalog: () => apiFetch('/api/mods/catalog'),
     getLeaderboard: () => apiFetch('/api/leaderboard'),
     getMyMatches: () => apiFetch('/api/leaderboard/matches/mine')
 };

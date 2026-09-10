@@ -1,7 +1,6 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
 const carService = require('../services/carService');
-const modService = require('../services/modService');
 
 const router = express.Router();
 
@@ -54,11 +53,10 @@ router.put('/:carId/activate', requireAuth, async (req, res, next) => {
 
 router.get('/:carId', requireAuth, async (req, res, next) => {
     try {
-        const car = await carService.getCarById(req.params.carId);
-        if (!car) return res.status(404).json({ error: 'Car not found' });
-        if (car.user_id !== req.user.id) return res.status(403).json({ error: 'You do not own this car' });
-        const mods = await modService.listModsForCar(car.id);
-        res.json({ car, mods });
+        const result = await carService.getCarWithMods(req.params.carId);
+        if (!result) return res.status(404).json({ error: 'Car not found' });
+        if (result.car.user_id !== req.user.id) return res.status(403).json({ error: 'You do not own this car' });
+        res.json(result);
     } catch (err) {
         next(err);
     }
@@ -86,15 +84,6 @@ router.delete('/:carId', requireAuth, async (req, res, next) => {
     try {
         await carService.deleteCar(req.user.id, req.params.carId);
         res.status(204).send();
-    } catch (err) {
-        next(err);
-    }
-});
-
-router.post('/:carId/mods', requireAuth, async (req, res, next) => {
-    try {
-        const mod = await modService.addMod(req.user.id, req.params.carId, req.body);
-        res.status(201).json({ mod });
     } catch (err) {
         next(err);
     }

@@ -35,17 +35,32 @@ CREATE TABLE IF NOT EXISTS cars (
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS engine_size VARCHAR(20);
 ALTER TABLE cars ADD COLUMN IF NOT EXISTS fuel_type VARCHAR(30);
 
+-- Grip is its own base stat so race_tires mods (Stage 4) have something to
+-- boost independently of handling_score (lowered_suspension's stat).
+ALTER TABLE cars ADD COLUMN IF NOT EXISTS grip_score SMALLINT NOT NULL DEFAULT 50;
+
 CREATE TABLE IF NOT EXISTS mods (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     car_id          UUID NOT NULL REFERENCES cars(id) ON DELETE CASCADE,
-    name            VARCHAR(100) NOT NULL,
-    category        VARCHAR(50) NOT NULL, -- e.g. engine, exhaust, suspension, aero, wheels
-    bhp_delta       INTEGER NOT NULL DEFAULT 0,
-    weight_delta_kg INTEGER NOT NULL DEFAULT 0,
+    mod_type        VARCHAR(30) NOT NULL,
     description     TEXT,
-    image_url       TEXT,
+    photo_url       TEXT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Stage 4 replaced the old free-form (name, category, bhp_delta,
+-- weight_delta_kg, image_url) mod shape with a fixed catalog of mod_types
+-- whose stat bonuses are computed on the fly (see modService.js) rather
+-- than stored — so a deleted mod's effect simply disappears from the
+-- recalculated total instead of requiring a reverse mutation.
+ALTER TABLE mods ADD COLUMN IF NOT EXISTS mod_type VARCHAR(30);
+ALTER TABLE mods ADD COLUMN IF NOT EXISTS photo_url TEXT;
+ALTER TABLE mods DROP COLUMN IF EXISTS name;
+ALTER TABLE mods DROP COLUMN IF EXISTS category;
+ALTER TABLE mods DROP COLUMN IF EXISTS bhp_delta;
+ALTER TABLE mods DROP COLUMN IF EXISTS weight_delta_kg;
+ALTER TABLE mods DROP COLUMN IF EXISTS image_url;
+ALTER TABLE mods ALTER COLUMN mod_type SET NOT NULL;
 
 CREATE TABLE IF NOT EXISTS matches (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
