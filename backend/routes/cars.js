@@ -1,6 +1,7 @@
 const express = require('express');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, optionalAuth } = require('../middleware/auth');
 const carService = require('../services/carService');
+const commentService = require('../services/commentService');
 
 const router = express.Router();
 
@@ -51,12 +52,56 @@ router.put('/:carId/activate', requireAuth, async (req, res, next) => {
     }
 });
 
-router.get('/:carId', requireAuth, async (req, res, next) => {
+// Stage 7: every car became publicly viewable (see carService.getCarVisibility)
+// so the social garage/comparison/comments features have something to show —
+// this reverses Stage 3's owner-only lock on car detail. Uses optionalAuth so
+// the response can include isOwner for the frontend to decide whether to show
+// management controls, without requiring a login to view at all.
+router.get('/compare', async (req, res, next) => {
+    try {
+        const { car1, car2 } = req.query;
+        if (!car1 || !car2) return res.status(400).json({ error: 'car1 and car2 query params are required' });
+
+        const comparison = await carService.compareStats(car1, car2);
+        if (!comparison) return res.status(404).json({ error: 'One or both cars not found' });
+        res.json(comparison);
+    } catch (err) {
+        next(err);
+    }
+});
+
+router.get('/:carId', optionalAuth, async (req, res, next) => {
     try {
         const result = await carService.getCarWithMods(req.params.carId);
         if (!result) return res.status(404).json({ error: 'Car not found' });
-        if (result.car.user_id !== req.user.id) return res.status(403).json({ error: 'You do not own this car' });
-        res.json(result);
+        res.json({ ...result, isOwner: !!req.user && result.car.user_id === req.user.id });
+    } catch (err) {
+        next(err);
+    }
+});
+
+router.post('/:carId/comments', requireAuth, async (req, res, next) => {
+    try {
+        const comment = await commentService.addComment(req.params.carId, req.user.id, req.body.comment_text);
+        res.status(201).json({ comment });
+    } catch (err) {
+        next(err);
+    }
+});
+
+router.get('/:carId/comments', async (req, res, next) => {
+    try {
+        const comments = await commentService.getComments(req.params.carId);
+        res.json({ comments });
+    } catch (err) {
+        next(err);
+    }
+});
+
+router.delete('/:carId/comments/:commentId', requireAuth, async (req, res, next) => {
+    try {
+        await commentService.deleteComment(req.params.commentId, req.user.id);
+        res.status(204).send();
     } catch (err) {
         next(err);
     }

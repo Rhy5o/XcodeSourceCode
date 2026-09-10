@@ -4,7 +4,9 @@ const links = [
     { href: '/dashboard', label: 'Dashboard' },
     { href: '/garage', label: 'Garage' },
     { href: '/show', label: 'Show' },
-    { href: '/leaderboard', label: 'Leaderboard' }
+    { href: '/leaderboard', label: 'Leaderboard' },
+    { href: '/social/feed', label: 'Following' },
+    { href: '/clans', label: 'Clans' }
 ];
 
 export default function Navbar() {

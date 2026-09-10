@@ -10,6 +10,24 @@ async function listCarsForUser(userId) {
     return result.rows;
 }
 
+// Not in the original route list, but pages/users/[userId]/garage.js needs
+// "all of a specific user's cars, publicly" (mod count + total stats per
+// car) and the only existing "list cars for a user" route is self-only
+// (GET /api/cars / /api/cars/garage, both scoped to req.user.id).
+async function listCarsForUserPublic(userId) {
+    const result = await pool.query(
+        `SELECT cars.*, COALESCE(mod_counts.count, 0)::int AS mod_count
+         FROM cars
+         LEFT JOIN (
+             SELECT car_id, COUNT(*) AS count FROM mods GROUP BY car_id
+         ) mod_counts ON mod_counts.car_id = cars.id
+         WHERE cars.user_id = $1
+         ORDER BY cars.is_active DESC, cars.created_at DESC`,
+        [userId]
+    );
+    return result.rows;
+}
+
 async function listPublicCars(limit = 50) {
     const result = await pool.query(
         `SELECT cars.*, users.username FROM cars
@@ -175,6 +193,37 @@ async function deleteCar(userId, carId) {
     await pool.query(`DELETE FROM cars WHERE id = $1`, [carId]);
 }
 
+// Stage 7: every car is publicly viewable (no privacy column exists on
+// cars/users), so this currently only guards against a nonexistent car —
+// it's kept as a real function, rather than inlined everywhere it'd be
+// used, so a future privacy toggle has one place to plug into.
+async function getCarVisibility(carId, requesterId) {
+    const car = await getCarById(carId);
+    if (!car) return false;
+    return true; // public by default; car.user_id === requesterId would be the owner-only case
+}
+
+/**
+ * Detailed comparison of two cars: base stats, each mod's bonus, the final
+ * (base + mods) stats, and a per-stat difference (car1 - car2, positive
+ * meaning car1 is ahead — except 0-60, where lower is better, so its diff
+ * is car2 - car1 to keep "positive = car1 ahead" consistent across rows).
+ */
+async function compareStats(car1Id, car2Id) {
+    const [side1, side2] = await Promise.all([getCarWithMods(car1Id), getCarWithMods(car2Id)]);
+    if (!side1 || !side2) return null;
+
+    const diff = {
+        bhp: side1.finalStats.bhp - side2.finalStats.bhp,
+        zero_to_sixty: Math.round((side2.finalStats.zero_to_sixty - side1.finalStats.zero_to_sixty) * 100) / 100,
+        weight_kg: side2.finalStats.weight_kg - side1.finalStats.weight_kg,
+        handling_score: side1.finalStats.handling_score - side2.finalStats.handling_score,
+        grip_score: side1.finalStats.grip_score - side2.finalStats.grip_score
+    };
+
+    return { car1: side1, car2: side2, diff };
+}
+
 function httpError(status, message) {
     const err = new Error(message);
     err.status = status;
@@ -183,12 +232,15 @@ function httpError(status, message) {
 
 module.exports = {
     listCarsForUser,
+    listCarsForUserPublic,
     listPublicCars,
     getCarById,
     createCar,
     registerCarFromDvla,
     activateCar,
     getCarWithMods,
+    getCarVisibility,
+    compareStats,
     updateCar,
     deleteCar
 };

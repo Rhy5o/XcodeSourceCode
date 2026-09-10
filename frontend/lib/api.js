@@ -84,7 +84,41 @@ export const api = {
     getUserProfile: (userId) => apiFetch(`/api/users/${userId}/profile`),
     getUserBadges: (userId) => apiFetch(`/api/users/${userId}/badges`),
     getUserMatches: (userId, limit = 10) => apiFetch(`/api/users/${userId}/matches?limit=${limit}`),
-    searchUsers: (query) => apiFetch(`/api/users/search?q=${encodeURIComponent(query)}`)
+    searchUsers: (query) => apiFetch(`/api/users/search?q=${encodeURIComponent(query)}`),
+    getUserGarage: (userId) => apiFetch(`/api/users/${userId}/garage`),
+
+    // Social
+    followUser: (userId) => apiFetch(`/api/social/follow/${userId}`, { method: 'POST' }),
+    unfollowUser: (userId) => apiFetch(`/api/social/follow/${userId}`, { method: 'DELETE' }),
+    getFollowers: (userId) => apiFetch(`/api/social/followers/${userId}`),
+    getFollowing: (userId) => apiFetch(`/api/social/following/${userId}`),
+    getFollowingFeed: () => apiFetch('/api/social/feed'),
+
+    // Clans
+    createClan: (name, description) =>
+        apiFetch('/api/clans', { method: 'POST', body: JSON.stringify({ name, description }) }),
+    listClans: ({ q, sort, page, limit } = {}) => {
+        const params = new URLSearchParams();
+        if (q) params.set('q', q);
+        if (sort) params.set('sort', sort);
+        if (page) params.set('page', page);
+        if (limit) params.set('limit', limit);
+        return apiFetch(`/api/clans?${params.toString()}`);
+    },
+    getClan: (clanId) => apiFetch(`/api/clans/${clanId}`),
+    joinClan: (clanId) => apiFetch(`/api/clans/${clanId}/join`, { method: 'PUT' }),
+    leaveClan: (clanId) => apiFetch(`/api/clans/${clanId}/leave`, { method: 'DELETE' }),
+    getClanLeaderboard: (clanId) => apiFetch(`/api/clans/${clanId}/leaderboard`),
+    kickClanMember: (clanId, userId) => apiFetch(`/api/clans/${clanId}/members/${userId}`, { method: 'DELETE' }),
+
+    // Comments
+    addComment: (carId, text) =>
+        apiFetch(`/api/cars/${carId}/comments`, { method: 'POST', body: JSON.stringify({ comment_text: text }) }),
+    getComments: (carId) => apiFetch(`/api/cars/${carId}/comments`),
+    deleteComment: (carId, commentId) => apiFetch(`/api/cars/${carId}/comments/${commentId}`, { method: 'DELETE' }),
+
+    // Comparison
+    compareStats: (car1Id, car2Id) => apiFetch(`/api/cars/compare?car1=${car1Id}&car2=${car2Id}`)
 };
 
 export { getToken, setToken, getUser, setUser, logout, API_URL };

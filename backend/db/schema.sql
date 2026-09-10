@@ -143,8 +143,51 @@ INSERT INTO badges (slug, name, description, icon_url, criteria) VALUES
     ('modded_beast', 'Modded Beast', 'Install 5 or more mods on a single car', '🔧', 'any car mod count >= 5')
 ON CONFLICT (slug) DO NOTHING;
 
+-- Stage 7: social features.
+CREATE TABLE IF NOT EXISTS followers (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    follower_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    following_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (follower_id, following_id),
+    CONSTRAINT no_self_follow CHECK (follower_id <> following_id)
+);
+
+CREATE TABLE IF NOT EXISTS clans (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name            VARCHAR(50) NOT NULL UNIQUE,
+    description     TEXT,
+    leader_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    member_count    INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS clan_members (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    clan_id         UUID NOT NULL REFERENCES clans(id) ON DELETE CASCADE,
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    joined_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    role            VARCHAR(20) NOT NULL DEFAULT 'member', -- 'leader' | 'member'
+    UNIQUE (clan_id, user_id),
+    UNIQUE (user_id) -- a user belongs to at most one clan at a time
+);
+
+CREATE TABLE IF NOT EXISTS car_comments (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    car_id          UUID NOT NULL REFERENCES cars(id) ON DELETE CASCADE,
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    comment_text    TEXT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS idx_cars_user_id ON cars(user_id);
 CREATE INDEX IF NOT EXISTS idx_mods_car_id ON mods(car_id);
+CREATE INDEX IF NOT EXISTS idx_followers_follower ON followers(follower_id);
+CREATE INDEX IF NOT EXISTS idx_followers_following ON followers(following_id);
+CREATE INDEX IF NOT EXISTS idx_clan_members_clan ON clan_members(clan_id);
+CREATE INDEX IF NOT EXISTS idx_clans_member_count ON clans(member_count DESC);
+CREATE INDEX IF NOT EXISTS idx_clans_name ON clans(lower(name));
+CREATE INDEX IF NOT EXISTS idx_car_comments_car_id ON car_comments(car_id);
 CREATE INDEX IF NOT EXISTS idx_matches_car1 ON matches(car1_id);
 CREATE INDEX IF NOT EXISTS idx_matches_car2 ON matches(car2_id);
 CREATE INDEX IF NOT EXISTS idx_matches_timestamp ON matches("timestamp" DESC);

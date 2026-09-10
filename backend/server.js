@@ -10,6 +10,8 @@ const leaderboardRoutes = require('./routes/leaderboard');
 const showRoutes = require('./routes/show');
 const usersRoutes = require('./routes/users');
 const adminRoutes = require('./routes/admin');
+const socialRoutes = require('./routes/social');
+const clanRoutes = require('./routes/clans');
 const { startScheduler } = require('./services/schedulerService');
 
 const app = express();
@@ -33,6 +35,8 @@ app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/show', showRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/social', socialRoutes);
+app.use('/api/clans', clanRoutes);
 
 app.use((req, res) => {
     res.status(404).json({ error: 'Not found' });

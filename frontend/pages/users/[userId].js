@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import Navbar from '../../components/Navbar';
 import UserStats from '../../components/UserStats';
 import BadgeGrid from '../../components/BadgeGrid';
 import MatchCard from '../../components/MatchCard';
+import FollowButton from '../../components/FollowButton';
 import { api } from '../../lib/api';
 
 function formatJoinDate(dateString) {
@@ -19,6 +21,10 @@ export default function UserProfile() {
     const [matches, setMatches] = useState([]);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(true);
+
+    const [listView, setListView] = useState(null); // null | 'followers' | 'following'
+    const [listEntries, setListEntries] = useState([]);
+    const [listLoading, setListLoading] = useState(false);
 
     useEffect(() => {
         if (!userId) return;
@@ -37,6 +43,20 @@ export default function UserProfile() {
             .catch((err) => setError(err.message))
             .finally(() => setLoading(false));
     }, [userId]);
+
+    function toggleList(kind) {
+        if (listView === kind) {
+            setListView(null);
+            return;
+        }
+        setListView(kind);
+        setListLoading(true);
+        const fetcher = kind === 'followers' ? api.getFollowers : api.getFollowing;
+        fetcher(userId)
+            .then((res) => setListEntries(res[kind]))
+            .catch((err) => setError(err.message))
+            .finally(() => setListLoading(false));
+    }
 
     if (loading) {
         return (
@@ -65,23 +85,75 @@ export default function UserProfile() {
     }
 
     if (!profile) return null;
-    const { user, allTime, currentSeason, topCars } = profile;
+    const { user, allTime, currentSeason, topCars, followersCount, followingCount, clan, isSelf, viewerIsFollowing } =
+        profile;
 
     return (
         <div>
             <Navbar />
             <div className="mx-auto max-w-3xl px-4 py-8 text-gray-100">
                 <div className="rounded-xl border border-gray-700 bg-gray-900 p-6">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                             <h1 className="text-2xl font-bold">{user.username}</h1>
                             <p className="text-sm text-gray-400">Joined {formatJoinDate(user.created_at)}</p>
+
+                            <div className="mt-3 flex flex-wrap items-center gap-4 text-sm">
+                                <button onClick={() => toggleList('followers')} className="text-gray-300 hover:text-red-400">
+                                    <strong className="text-gray-100">{followersCount}</strong> followers
+                                </button>
+                                <button onClick={() => toggleList('following')} className="text-gray-300 hover:text-red-400">
+                                    <strong className="text-gray-100">{followingCount}</strong> following
+                                </button>
+                                {clan && (
+                                    <Link href={`/clans/${clan.id}`} className="text-gray-300 hover:text-red-400">
+                                        Clan: <strong className="text-gray-100">{clan.name}</strong>
+                                    </Link>
+                                )}
+                            </div>
+
+                            {listView && (
+                                <div className="mt-3 max-w-xs rounded-lg border border-gray-700 bg-gray-950 p-3">
+                                    {listLoading ? (
+                                        <p className="text-xs text-gray-500">Loading...</p>
+                                    ) : listEntries.length === 0 ? (
+                                        <p className="text-xs text-gray-500">
+                                            No {listView} yet.
+                                        </p>
+                                    ) : (
+                                        <ul className="flex flex-col gap-1">
+                                            {listEntries.map((entry) => (
+                                                <li key={entry.id}>
+                                                    <Link
+                                                        href={`/users/${entry.id}`}
+                                                        className="text-sm text-gray-200 hover:text-red-400 hover:underline"
+                                                    >
+                                                        {entry.username}
+                                                    </Link>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+                            )}
                         </div>
-                        {currentSeason.rank && (
-                            <span className="rounded-full bg-red-500/20 px-3 py-1 text-sm font-semibold text-red-400">
-                                #{currentSeason.rank} this season
-                            </span>
-                        )}
+
+                        <div className="flex flex-col items-end gap-2">
+                            {currentSeason.rank && (
+                                <span className="rounded-full bg-red-500/20 px-3 py-1 text-sm font-semibold text-red-400">
+                                    #{currentSeason.rank} this season
+                                </span>
+                            )}
+                            <div className="flex gap-2">
+                                {!isSelf && <FollowButton userId={user.id} initialFollowing={viewerIsFollowing} />}
+                                <Link
+                                    href={`/users/${user.id}/garage`}
+                                    className="rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-100 transition hover:border-gray-500"
+                                >
+                                    View Garage
+                                </Link>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
