@@ -24,7 +24,7 @@ export default function Show() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
                     {cars.map((car) => (
                         <div key={car.id} className="stack">
-                            <CarCard car={car} />
+                            <CarCard car={car} linkable={false} />
                             <span className="muted" style={{ fontSize: 13 }}>
                                 Owned by {car.username}
                             </span>

@@ -1,178 +1,132 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Navbar from '../components/Navbar';
-import CarCard from '../components/CarCard';
+import CarGrid from '../components/CarGrid';
 import { api, getToken } from '../lib/api';
-
-const emptyCarForm = {
-    regPlate: '',
-    make: '',
-    model: '',
-    year: '',
-    bhp: '',
-    topSpeedMph: '',
-    zeroToSixty: '',
-    weightKg: '',
-    handlingScore: 50
-};
-
-const emptyModForm = { name: '', category: 'engine', bhpDelta: '', weightDeltaKg: '' };
 
 export default function Garage() {
     const router = useRouter();
-    const [cars, setCars] = useState([]);
-    const [carForm, setCarForm] = useState(emptyCarForm);
-    const [modForm, setModForm] = useState(emptyModForm);
-    const [selectedCarId, setSelectedCarId] = useState('');
+    const [cars, setCars] = useState(null); // null = still loading
     const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [activatingCarId, setActivatingCarId] = useState(null);
+
+    const [showRegisterForm, setShowRegisterForm] = useState(false);
+    const [regPlate, setRegPlate] = useState('');
+    const [registering, setRegistering] = useState(false);
+    const [registerError, setRegisterError] = useState('');
 
     useEffect(() => {
         if (!getToken()) {
             router.replace('/login');
             return;
         }
-        refreshCars();
+        loadGarage();
     }, [router]);
 
-    function refreshCars() {
-        api.getCars()
+    function loadGarage() {
+        setError('');
+        api.getGarage()
             .then((res) => setCars(res.cars))
             .catch((err) => setError(err.message));
     }
 
-    function updateCarField(field) {
-        return (e) => setCarForm((f) => ({ ...f, [field]: e.target.value }));
-    }
-
-    function updateModField(field) {
-        return (e) => setModForm((f) => ({ ...f, [field]: e.target.value }));
-    }
-
-    async function handleAddCar(e) {
-        e.preventDefault();
+    async function handleActivate(carId) {
+        setActivatingCarId(carId);
         setError('');
-        setLoading(true);
         try {
-            await api.createCar({
-                ...carForm,
-                year: Number(carForm.year) || undefined,
-                bhp: Number(carForm.bhp) || 0,
-                topSpeedMph: Number(carForm.topSpeedMph) || 0,
-                zeroToSixty: Number(carForm.zeroToSixty) || 0,
-                weightKg: Number(carForm.weightKg) || 0,
-                handlingScore: Number(carForm.handlingScore) || 50
-            });
-            setCarForm(emptyCarForm);
-            refreshCars();
+            await api.activateCar(carId);
+            setCars((prev) => prev.map((c) => ({ ...c, is_active: c.id === carId })));
         } catch (err) {
             setError(err.message);
         } finally {
-            setLoading(false);
+            setActivatingCarId(null);
         }
     }
 
-    async function handleAddMod(e) {
+    async function handleRegister(e) {
         e.preventDefault();
-        if (!selectedCarId) {
-            setError('Pick a car to mod first');
-            return;
-        }
-        setError('');
+        setRegisterError('');
+        setRegistering(true);
         try {
-            await api.addMod(selectedCarId, {
-                ...modForm,
-                bhpDelta: Number(modForm.bhpDelta) || 0,
-                weightDeltaKg: Number(modForm.weightDeltaKg) || 0
-            });
-            setModForm(emptyModForm);
-            refreshCars();
+            const { car } = await api.registerCar(regPlate);
+            setCars((prev) => (prev ? [car, ...prev] : [car]));
+            setRegPlate('');
+            setShowRegisterForm(false);
         } catch (err) {
-            setError(err.message);
+            setRegisterError(err.message);
+        } finally {
+            setRegistering(false);
         }
     }
 
     return (
         <div>
             <Navbar />
-            <div className="page stack">
-                <h1>Garage</h1>
-                {error && <p className="error-text">{error}</p>}
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
-                    {cars.map((car) => (
-                        <CarCard key={car.id} car={car} />
-                    ))}
+            <div className="mx-auto max-w-5xl px-4 py-8 text-gray-100">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h1 className="text-2xl font-bold">Garage</h1>
+                    <button
+                        onClick={() => setShowRegisterForm((s) => !s)}
+                        className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-400"
+                    >
+                        Register New Car
+                    </button>
                 </div>
 
-                <section className="card stack">
-                    <h2 style={{ margin: 0 }}>Add a car</h2>
-                    <form className="stack" onSubmit={handleAddCar}>
-                        <input className="input" placeholder="UK reg plate" value={carForm.regPlate} onChange={updateCarField('regPlate')} />
-                        <input className="input" placeholder="Make" value={carForm.make} onChange={updateCarField('make')} required />
-                        <input className="input" placeholder="Model" value={carForm.model} onChange={updateCarField('model')} required />
-                        <input className="input" placeholder="Year" type="number" value={carForm.year} onChange={updateCarField('year')} />
-                        <input className="input" placeholder="BHP" type="number" value={carForm.bhp} onChange={updateCarField('bhp')} />
+                {showRegisterForm && (
+                    <form
+                        onSubmit={handleRegister}
+                        className="mt-4 flex flex-col gap-2 rounded-xl border border-gray-700 bg-gray-900 p-4 sm:flex-row sm:items-center"
+                    >
                         <input
-                            className="input"
-                            placeholder="Top speed (mph)"
-                            type="number"
-                            value={carForm.topSpeedMph}
-                            onChange={updateCarField('topSpeedMph')}
+                            className="flex-1 rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-red-500 focus:outline-none"
+                            placeholder="UK reg plate e.g. AB12 CDE"
+                            value={regPlate}
+                            onChange={(e) => setRegPlate(e.target.value)}
+                            required
                         />
-                        <input
-                            className="input"
-                            placeholder="0-60 (seconds)"
-                            type="number"
-                            step="0.1"
-                            value={carForm.zeroToSixty}
-                            onChange={updateCarField('zeroToSixty')}
-                        />
-                        <input
-                            className="input"
-                            placeholder="Weight (kg)"
-                            type="number"
-                            value={carForm.weightKg}
-                            onChange={updateCarField('weightKg')}
-                        />
-                        <button className="button" type="submit" disabled={loading}>
-                            {loading ? 'Adding...' : 'Add car'}
+                        <button
+                            type="submit"
+                            disabled={registering}
+                            className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            {registering ? 'Looking up DVLA...' : 'Register'}
                         </button>
                     </form>
-                </section>
+                )}
+                {registerError && <p className="mt-2 text-sm text-red-400">{registerError}</p>}
 
-                <section className="card stack">
-                    <h2 style={{ margin: 0 }}>Add a mod</h2>
-                    <form className="stack" onSubmit={handleAddMod}>
-                        <select className="input" value={selectedCarId} onChange={(e) => setSelectedCarId(e.target.value)}>
-                            <option value="">Select a car</option>
-                            {cars.map((car) => (
-                                <option key={car.id} value={car.id}>
-                                    {car.make} {car.model} ({car.reg_plate})
-                                </option>
-                            ))}
-                        </select>
-                        <input className="input" placeholder="Mod name e.g. Cold air intake" value={modForm.name} onChange={updateModField('name')} required />
-                        <select className="input" value={modForm.category} onChange={updateModField('category')}>
-                            <option value="engine">Engine</option>
-                            <option value="exhaust">Exhaust</option>
-                            <option value="suspension">Suspension</option>
-                            <option value="aero">Aero</option>
-                            <option value="wheels">Wheels</option>
-                        </select>
-                        <input className="input" placeholder="BHP change" type="number" value={modForm.bhpDelta} onChange={updateModField('bhpDelta')} />
-                        <input
-                            className="input"
-                            placeholder="Weight change (kg)"
-                            type="number"
-                            value={modForm.weightDeltaKg}
-                            onChange={updateModField('weightDeltaKg')}
-                        />
-                        <button className="button" type="submit">
-                            Add mod
-                        </button>
-                    </form>
-                </section>
+                <div className="mt-6">
+                    {error && (
+                        <p className="mb-4 rounded-lg border border-red-900 bg-red-950/40 p-3 text-sm text-red-400">{error}</p>
+                    )}
+
+                    {cars === null && !error && (
+                        <div className="flex justify-center py-16">
+                            <div
+                                className="h-10 w-10 animate-spin rounded-full border-4 border-gray-700 border-t-red-500"
+                                role="status"
+                                aria-label="Loading garage"
+                            />
+                        </div>
+                    )}
+
+                    {cars !== null && cars.length === 0 && (
+                        <div className="rounded-xl border border-gray-700 bg-gray-900 p-8 text-center">
+                            <p className="text-gray-300">No cars registered yet.</p>
+                            <button
+                                onClick={() => setShowRegisterForm(true)}
+                                className="mt-3 text-sm font-semibold text-red-400 hover:underline"
+                            >
+                                Register your first car
+                            </button>
+                        </div>
+                    )}
+
+                    {cars && cars.length > 0 && (
+                        <CarGrid cars={cars} onActivate={handleActivate} activatingCarId={activatingCarId} />
+                    )}
+                </div>
             </div>
         </div>
     );

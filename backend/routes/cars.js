@@ -52,10 +52,11 @@ router.put('/:carId/activate', requireAuth, async (req, res, next) => {
     }
 });
 
-router.get('/:carId', async (req, res, next) => {
+router.get('/:carId', requireAuth, async (req, res, next) => {
     try {
         const car = await carService.getCarById(req.params.carId);
         if (!car) return res.status(404).json({ error: 'Car not found' });
+        if (car.user_id !== req.user.id) return res.status(403).json({ error: 'You do not own this car' });
         const mods = await modService.listModsForCar(car.id);
         res.json({ car, mods });
     } catch (err) {
