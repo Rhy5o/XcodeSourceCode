@@ -107,7 +107,15 @@ export default function CarDetail() {
                 {!loading && car && (
                     <div className="mt-6 flex flex-col gap-8">
                         <div>
-                            <div className="flex items-start justify-between gap-3">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                                src={api.getCarSvgUrl(car.id, { cacheBust: mods.length })}
+                                alt={`Stylized illustration of the ${car.make} ${car.model}`}
+                                loading="lazy"
+                                className="aspect-[2/1] w-full rounded-xl border border-gray-700 bg-gray-900 object-contain"
+                            />
+
+                            <div className="mt-6 flex items-start justify-between gap-3">
                                 <div>
                                     <h1 className="text-2xl font-bold">
                                         {car.make} {car.model}

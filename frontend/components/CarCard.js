@@ -1,4 +1,5 @@
 import { useRouter } from 'next/router';
+import { api } from '../lib/api';
 
 function Stat({ label, value }) {
     return (
@@ -31,6 +32,17 @@ export default function CarCard({ car, onActivate, activating = false, linkable 
                 linkable ? 'cursor-pointer' : ''
             } ${car.is_active ? 'border-emerald-500 bg-emerald-950/20' : 'border-gray-700 bg-gray-900'}`}
         >
+            {/* SVG car illustration is generated per-request server-side (see
+                svgCarRenderer.js) and can't be optimized/resized by next/image
+                the way a static asset can. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+                src={api.getCarSvgUrl(car.id, { cacheBust: car.mod_count })}
+                alt={`Stylized illustration of the ${car.make} ${car.model}`}
+                loading="lazy"
+                className="mb-3 aspect-[2/1] w-full rounded-lg bg-gray-950/40 object-contain"
+            />
+
             <div className="flex items-start justify-between gap-2">
                 <div>
                     <h3 className="text-lg font-semibold text-gray-100">

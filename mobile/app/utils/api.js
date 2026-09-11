@@ -61,6 +61,18 @@ const api = {
     getUserGarage: (userId) => request('get', `/api/users/${userId}/garage`),
     getCarWithMods: (carId) => request('get', `/api/cars/${carId}`),
     registerCar: (regPlate) => request('post', '/api/cars/register', { regPlate }),
+    // Returns the raw SVG markup as a string (Content-Type: image/svg+xml,
+    // so axios hands back the body as plain text rather than trying to
+    // JSON-parse it) — React Native has no native <img> SVG support, so the
+    // caller renders this via react-native-svg's <SvgXml> rather than
+    // pointing an <Image> at a URL the way the web app does.
+    getCarSvg: (carId, { color, cacheBust } = {}) => {
+        const params = new URLSearchParams();
+        if (color) params.set('color', color);
+        if (cacheBust !== undefined && cacheBust !== null) params.set('v', cacheBust);
+        const query = params.toString();
+        return request('get', `/api/cars/${carId}/svg${query ? `?${query}` : ''}`);
+    },
     activateCar: (carId) => request('put', `/api/cars/${carId}/activate`),
     getModCatalog: () => request('get', '/api/mods/catalog'),
     addMod: (carId, modType, description, photo) => {

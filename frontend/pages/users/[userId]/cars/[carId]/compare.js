@@ -82,6 +82,23 @@ export default function CompareCars() {
                     {mine.make} {mine.model} vs {theirs.make} {theirs.model}
                 </p>
 
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                        src={api.getCarSvgUrl(mine.id, { cacheBust: comparison.car1.mods.length })}
+                        alt={`Stylized illustration of your ${mine.make} ${mine.model}`}
+                        loading="lazy"
+                        className="aspect-[2/1] w-full rounded-xl border border-gray-700 bg-gray-900 object-contain"
+                    />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                        src={api.getCarSvgUrl(theirs.id, { cacheBust: comparison.car2.mods.length })}
+                        alt={`Stylized illustration of their ${theirs.make} ${theirs.model}`}
+                        loading="lazy"
+                        className="aspect-[2/1] w-full rounded-xl border border-gray-700 bg-gray-900 object-contain"
+                    />
+                </div>
+
                 <div className="mt-6 overflow-x-auto rounded-xl border border-gray-700 bg-gray-900">
                     <table className="w-full text-sm">
                         <thead>

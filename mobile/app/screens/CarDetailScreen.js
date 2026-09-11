@@ -11,6 +11,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import StatBar from '../components/StatBar';
+import CarSvg from '../components/CarSvg';
 import api, { API_URL } from '../utils/api';
 import storage from '../utils/storage';
 import { colors, MIN_TOUCH_TARGET } from '../utils/theme';
@@ -144,6 +145,8 @@ export default function CarDetailScreen({ route, navigation }) {
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+            <CarSvg carId={car.id} cacheBust={mods.length} style={styles.svg} />
+
             <View style={styles.headerRow}>
                 <Text style={styles.title}>
                     {car.make} {car.model}
@@ -255,6 +258,7 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
     content: { padding: 16, paddingBottom: 48 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
+    svg: { marginBottom: 16 },
     headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     title: { fontSize: 22, fontWeight: '800', color: colors.text },
     regPlate: { color: colors.muted, fontSize: 13, marginTop: 2, marginBottom: 16 },

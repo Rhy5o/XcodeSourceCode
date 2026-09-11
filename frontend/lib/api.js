@@ -127,6 +127,21 @@ export const api = {
     getPublicCars: () => apiFetch('/api/cars/public/all'),
     getGarage: () => apiFetch('/api/cars/garage'),
     getCarWithMods: (carId) => apiFetch(`/api/cars/${carId}`),
+    // Not a JSON fetch — this is a plain URL for an <img src>. The endpoint
+    // renders straight from the car's own make/model/mods server-side, so
+    // there's nothing here to await; `color` is optional and only previews
+    // a different paint job (nothing is persisted). `cacheBust` (e.g. the
+    // car's mod count) should change whenever mods change — the response
+    // is cached for 5 minutes (Cache-Control), and the <img> tag's own src
+    // never changes on its own after adding/removing a mod, so without
+    // this the browser would keep showing the pre-mod render.
+    getCarSvgUrl: (carId, { color, cacheBust } = {}) => {
+        const params = new URLSearchParams();
+        if (color) params.set('color', color);
+        if (cacheBust !== undefined && cacheBust !== null) params.set('v', cacheBust);
+        const query = params.toString();
+        return `${API_URL}/api/cars/${carId}/svg${query ? `?${query}` : ''}`;
+    },
     registerCar: (regPlate) => apiFetch('/api/cars/register', { method: 'POST', body: JSON.stringify({ regPlate }) }),
     activateCar: (carId) => apiFetch(`/api/cars/${carId}/activate`, { method: 'PUT' }),
     createCar: (data) => apiFetch('/api/cars', { method: 'POST', body: JSON.stringify(data) }),

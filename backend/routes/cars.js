@@ -2,6 +2,7 @@ const express = require('express');
 const { requireAuth, optionalAuth } = require('../middleware/auth');
 const carService = require('../services/carService');
 const commentService = require('../services/commentService');
+const { generateCarSVG } = require('../services/svgCarRenderer');
 
 const router = express.Router();
 
@@ -75,6 +76,25 @@ router.get('/:carId', optionalAuth, async (req, res, next) => {
         const result = await carService.getCarWithMods(req.params.carId);
         if (!result) return res.status(404).json({ error: 'Car not found' });
         res.json({ ...result, isOwner: !!req.user && result.car.user_id === req.user.id });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// Public (cars are viewable by anyone, same as GET /:carId above) — a pure
+// render straight from the car's own make/model/mods, no file storage or
+// DB write involved. `?color=` lets a caller preview a different paint
+// job without persisting it (there's no color column on cars); omitted,
+// the color is derived deterministically from make/model.
+router.get('/:carId/svg', async (req, res, next) => {
+    try {
+        const result = await carService.getCarWithMods(req.params.carId);
+        if (!result) return res.status(404).json({ error: 'Car not found' });
+
+        const svg = generateCarSVG(result.car.make, result.car.model, req.query.color, result.mods);
+        res.set('Content-Type', 'image/svg+xml');
+        res.set('Cache-Control', 'public, max-age=300');
+        res.send(svg);
     } catch (err) {
         next(err);
     }

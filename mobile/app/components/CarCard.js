@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import CarSvg from './CarSvg';
 import { colors, MIN_TOUCH_TARGET } from '../utils/theme';
 
 export default function CarCard({ car, onPress, onActivate, activating = false }) {
@@ -8,6 +9,8 @@ export default function CarCard({ car, onPress, onActivate, activating = false }
             activeOpacity={0.8}
             style={[styles.card, car.is_active && styles.cardActive]}
         >
+            <CarSvg carId={car.id} cacheBust={car.mod_count} style={styles.svg} />
+
             <View style={styles.headerRow}>
                 <View style={{ flex: 1 }}>
                     <Text style={styles.title}>
@@ -51,6 +54,7 @@ const styles = StyleSheet.create({
         padding: 16,
         marginBottom: 12
     },
+    svg: { marginBottom: 12 },
     cardActive: { borderColor: colors.accent2, backgroundColor: '#0f2417' },
     headerRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
     title: { color: colors.text, fontSize: 17, fontWeight: '700' },

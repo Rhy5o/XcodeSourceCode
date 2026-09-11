@@ -3,8 +3,18 @@ const { normalize, isValidUkRegPlate } = require('./regPlateService');
 const dvlaService = require('./dvlaService');
 
 async function listCarsForUser(userId) {
+    // mod_count is joined in (same shape as listCarsForUserPublic below) so
+    // the garage grid's SVG car thumbnails can cache-bust on mod changes —
+    // without it, the browser has no way to tell an <img> pointing at
+    // /api/cars/:carId/svg that a newly added mod should show up.
     const result = await pool.query(
-        `SELECT * FROM cars WHERE user_id = $1 ORDER BY created_at DESC`,
+        `SELECT cars.*, COALESCE(mod_counts.count, 0)::int AS mod_count
+         FROM cars
+         LEFT JOIN (
+             SELECT car_id, COUNT(*) AS count FROM mods GROUP BY car_id
+         ) mod_counts ON mod_counts.car_id = cars.id
+         WHERE cars.user_id = $1
+         ORDER BY cars.created_at DESC`,
         [userId]
     );
     return result.rows;
