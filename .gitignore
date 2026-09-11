@@ -34,7 +34,16 @@ frontend/out/
 
 # Backend logs
 backend/*.log
+backend/logs/*
+!backend/logs/.gitkeep
 
 # Uploaded mod photos (local disk storage for now; move to S3 later)
 backend/uploads/*
 !backend/uploads/.gitkeep
+
+# Local Redis persistence snapshot (created by `redis-server --daemonize yes`
+# when run from backend/ during manual testing)
+backend/dump.rdb
+
+# Load test raw output
+backend/loadtest/*.json

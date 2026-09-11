@@ -33,19 +33,52 @@ export default function Signup() {
         <div className="page" style={{ maxWidth: 420 }}>
             <h1>Sign up</h1>
             <form className="stack card" onSubmit={handleSubmit}>
-                <input className="input" placeholder="Username" value={form.username} onChange={update('username')} required />
-                <input className="input" type="email" placeholder="Email" value={form.email} onChange={update('email')} required />
+                <label className="sr-only" htmlFor="signup-username">
+                    Username
+                </label>
                 <input
+                    id="signup-username"
+                    className="input"
+                    placeholder="Username"
+                    aria-label="Username"
+                    value={form.username}
+                    onChange={update('username')}
+                    required
+                />
+                <label className="sr-only" htmlFor="signup-email">
+                    Email
+                </label>
+                <input
+                    id="signup-email"
+                    className="input"
+                    type="email"
+                    placeholder="Email"
+                    aria-label="Email"
+                    value={form.email}
+                    onChange={update('email')}
+                    required
+                />
+                <label className="sr-only" htmlFor="signup-password">
+                    Password
+                </label>
+                <input
+                    id="signup-password"
                     className="input"
                     placeholder="Password (min 8 chars)"
+                    aria-label="Password (min 8 chars)"
                     type="password"
                     value={form.password}
                     onChange={update('password')}
                     required
                 />
+                <label className="sr-only" htmlFor="signup-reg-plate">
+                    UK reg plate
+                </label>
                 <input
+                    id="signup-reg-plate"
                     className="input"
                     placeholder="UK reg plate e.g. AB12 CDE"
+                    aria-label="UK reg plate"
                     value={form.regPlate}
                     onChange={update('regPlate')}
                     required

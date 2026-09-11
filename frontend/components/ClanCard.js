@@ -22,7 +22,7 @@ export default function ClanCard({ clan, isMember, onJoin, onLeave, busy }) {
                 <button
                     onClick={isMember ? onLeave : onJoin}
                     disabled={busy}
-                    className={`mt-3 w-full rounded-lg px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                    className={`mt-3 min-h-[44px] w-full rounded-lg px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                         isMember
                             ? 'border border-gray-700 text-gray-100 hover:border-red-500 hover:text-red-400'
                             : 'bg-red-500 text-white hover:bg-red-400'

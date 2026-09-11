@@ -105,6 +105,24 @@ CREATE TABLE user_xp (
     UNIQUE (user_id, season_number)
 );
 
+-- Stage 8: seasons are archived (moved out of the live table, not just
+-- filtered by season_number) so user_xp — read on essentially every
+-- request via the leaderboard — stays small as seasons accumulate.
+-- seasonService.resetSeason() moves the just-ended season's rows here and
+-- deletes them from user_xp; xpService reads from whichever table actually
+-- holds the requested season.
+CREATE TABLE IF NOT EXISTS user_xp_archive (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    season_number   INTEGER NOT NULL,
+    total_xp        INTEGER NOT NULL DEFAULT 0,
+    wins            INTEGER NOT NULL DEFAULT 0,
+    losses          INTEGER NOT NULL DEFAULT 0,
+    updated_at      TIMESTAMPTZ NOT NULL,
+    archived_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_id, season_number)
+);
+
 -- Singleton row tracking which season is "current". The id/CHECK pair is
 -- the standard Postgres pattern for enforcing at most one row.
 CREATE TABLE IF NOT EXISTS game_state (
@@ -190,9 +208,19 @@ CREATE INDEX IF NOT EXISTS idx_clans_name ON clans(lower(name));
 CREATE INDEX IF NOT EXISTS idx_car_comments_car_id ON car_comments(car_id);
 CREATE INDEX IF NOT EXISTS idx_matches_car1 ON matches(car1_id);
 CREATE INDEX IF NOT EXISTS idx_matches_car2 ON matches(car2_id);
+CREATE INDEX IF NOT EXISTS idx_matches_winner ON matches(winner_id);
 CREATE INDEX IF NOT EXISTS idx_matches_timestamp ON matches("timestamp" DESC);
+-- user_xp(user_id, season_number) and followers(follower_id, following_id),
+-- both explicitly called for in Stage 8, are already covered: each is
+-- already the UNIQUE constraint on that table (Stage 6, Stage 7), and a
+-- UNIQUE constraint in Postgres creates a backing index of exactly those
+-- columns in that order — a separate CREATE INDEX would just be a
+-- redundant duplicate of user_xp_user_id_season_number_key /
+-- followers_follower_id_following_id_key.
 CREATE INDEX IF NOT EXISTS idx_user_xp_season_xp ON user_xp(season_number, total_xp DESC);
 CREATE INDEX IF NOT EXISTS idx_user_xp_user_id ON user_xp(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_xp_archive_user_id ON user_xp_archive(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_xp_archive_season_xp ON user_xp_archive(season_number, total_xp DESC);
 CREATE INDEX IF NOT EXISTS idx_user_badges_user_id ON user_badges(user_id);
 CREATE INDEX IF NOT EXISTS idx_users_online ON users(is_online) WHERE is_online = true;
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(lower(username));

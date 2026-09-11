@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Navbar from '../components/Navbar';
 import CarGrid from '../components/CarGrid';
+import RetryBanner from '../components/RetryBanner';
 import { api, getToken } from '../lib/api';
 
 export default function Garage() {
@@ -73,13 +74,13 @@ export default function Garage() {
                     <div className="flex gap-2">
                         <Link
                             href="/show"
-                            className="rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-100 transition hover:border-gray-500"
+                            className="inline-flex min-h-[44px] items-center rounded-lg border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-100 transition hover:border-gray-500"
                         >
                             Go to Show
                         </Link>
                         <button
                             onClick={() => setShowRegisterForm((s) => !s)}
-                            className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-400"
+                            className="min-h-[44px] rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-400"
                         >
                             Register New Car
                         </button>
@@ -98,9 +99,14 @@ export default function Garage() {
                         onSubmit={handleRegister}
                         className="mt-4 flex flex-col gap-2 rounded-xl border border-gray-700 bg-gray-900 p-4 sm:flex-row sm:items-center"
                     >
+                        <label className="sr-only" htmlFor="reg-plate-input">
+                            UK reg plate
+                        </label>
                         <input
-                            className="flex-1 rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-red-500 focus:outline-none"
+                            id="reg-plate-input"
+                            className="min-h-[44px] flex-1 rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-red-500 focus:outline-none"
                             placeholder="UK reg plate e.g. AB12 CDE"
+                            aria-label="UK reg plate"
                             value={regPlate}
                             onChange={(e) => setRegPlate(e.target.value)}
                             required
@@ -108,7 +114,7 @@ export default function Garage() {
                         <button
                             type="submit"
                             disabled={registering}
-                            className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="min-h-[44px] rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             {registering ? 'Looking up DVLA...' : 'Register'}
                         </button>
@@ -117,9 +123,7 @@ export default function Garage() {
                 {registerError && <p className="mt-2 text-sm text-red-400">{registerError}</p>}
 
                 <div className="mt-6">
-                    {error && (
-                        <p className="mb-4 rounded-lg border border-red-900 bg-red-950/40 p-3 text-sm text-red-400">{error}</p>
-                    )}
+                    {error && <RetryBanner message={error} onRetry={loadGarage} />}
 
                     {cars === null && !error && (
                         <div className="flex justify-center py-16">

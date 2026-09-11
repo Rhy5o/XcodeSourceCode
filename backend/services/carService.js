@@ -197,10 +197,10 @@ async function deleteCar(userId, carId) {
 // cars/users), so this currently only guards against a nonexistent car —
 // it's kept as a real function, rather than inlined everywhere it'd be
 // used, so a future privacy toggle has one place to plug into.
-async function getCarVisibility(carId, requesterId) {
+async function getCarVisibility(carId, _requesterId) {
     const car = await getCarById(carId);
     if (!car) return false;
-    return true; // public by default; car.user_id === requesterId would be the owner-only case
+    return true; // public by default; car.user_id === _requesterId would be the owner-only case
 }
 
 /**

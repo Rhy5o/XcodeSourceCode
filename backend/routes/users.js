@@ -6,6 +6,7 @@ const raceEngine = require('../services/raceEngine');
 const socialService = require('../services/socialService');
 const clanService = require('../services/clanService');
 const carService = require('../services/carService');
+const cacheService = require('../services/cacheService');
 const { optionalAuth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -29,34 +30,47 @@ router.get('/search', async (req, res, next) => {
     }
 });
 
+// Everything about a profile except who's looking at it (isSelf,
+// viewerIsFollowing) is the same for every viewer, so only that shared part
+// is cached — those two fields are always computed fresh per-request.
+async function loadCacheableProfile(userId) {
+    const userResult = await pool.query(`SELECT id, username, created_at FROM users WHERE id = $1`, [userId]);
+    const user = userResult.rows[0];
+    if (!user) return null;
+
+    const [allTime, currentSeason, badges, topCars, followCounts, clanId] = await Promise.all([
+        badgeService.getAllTimeStats(userId),
+        xpService.getUserSeasonStats(userId, 'current'),
+        badgeService.getBadges(userId),
+        getTopCarsByWins(userId, 3),
+        socialService.getFollowingCounts(userId),
+        clanService.getUserClanId(userId)
+    ]);
+    const clan = clanId ? await clanService.getClan(clanId) : null;
+
+    return {
+        user,
+        allTime: { ...allTime, winRate: winRate(allTime.wins, allTime.losses) },
+        currentSeason: { ...currentSeason, winRate: winRate(currentSeason.wins, currentSeason.losses) },
+        badges,
+        topCars,
+        followersCount: followCounts.followers_count,
+        followingCount: followCounts.following_count,
+        clan
+    };
+}
+
 router.get('/:userId/profile', optionalAuth, async (req, res, next) => {
     try {
         const { userId } = req.params;
-        const userResult = await pool.query(`SELECT id, username, created_at FROM users WHERE id = $1`, [userId]);
-        const user = userResult.rows[0];
-        if (!user) return res.status(404).json({ error: 'User not found' });
-
-        const [allTime, currentSeason, badges, topCars, followCounts, clanId, viewerIsFollowing] = await Promise.all([
-            badgeService.getAllTimeStats(userId),
-            xpService.getUserSeasonStats(userId, 'current'),
-            badgeService.getBadges(userId),
-            getTopCarsByWins(userId, 3),
-            socialService.getFollowingCounts(userId),
-            clanService.getUserClanId(userId),
+        const [shared, viewerIsFollowing] = await Promise.all([
+            cacheService.getUserProfile(userId, () => loadCacheableProfile(userId)),
             req.user ? socialService.isFollowing(req.user.id, userId) : false
         ]);
-
-        const clan = clanId ? await clanService.getClan(clanId) : null;
+        if (!shared) return res.status(404).json({ error: 'User not found' });
 
         res.json({
-            user,
-            allTime: { ...allTime, winRate: winRate(allTime.wins, allTime.losses) },
-            currentSeason: { ...currentSeason, winRate: winRate(currentSeason.wins, currentSeason.losses) },
-            badges,
-            topCars,
-            followersCount: followCounts.followers_count,
-            followingCount: followCounts.following_count,
-            clan,
+            ...shared,
             isSelf: !!req.user && req.user.id === userId,
             viewerIsFollowing
         });

@@ -1,0 +1,52 @@
+config:
+  target: 'http://localhost:3001'
+  phases:
+    - duration: 10
+      arrivalCount: 100
+      name: 'Simulate 100 concurrent users signing up and going online'
+  processor: './processor.js'
+  ensure:
+    # Fails the run (and CI, if this is ever wired into a job) if p95
+    # latency creeps past 1s or more than 1% of requests error out.
+    p95: 1000
+    maxErrorRate: 1
+
+scenarios:
+  - name: 'Signup -> register car -> go online -> poll status -> leaderboard'
+    flow:
+      - function: 'generateUser'
+
+      - post:
+          url: '/api/auth/signup'
+          json:
+            username: '{{ username }}'
+            email: '{{ email }}'
+            password: 'loadtestpassword123'
+            regPlate: '{{ regPlate }}'
+          capture:
+            - json: '$.token'
+              as: 'token'
+          expect:
+            - statusCode: 201
+
+      - post:
+          url: '/api/cars/register'
+          headers:
+            Authorization: 'Bearer {{ token }}'
+          json:
+            regPlate: '{{ regPlate }}'
+          expect:
+            - statusCode: 201
+
+      - put:
+          url: '/api/show/go-online'
+          headers:
+            Authorization: 'Bearer {{ token }}'
+
+      - get:
+          url: '/api/show/status'
+          headers:
+            Authorization: 'Bearer {{ token }}'
+
+      - get:
+          url: '/api/leaderboard'

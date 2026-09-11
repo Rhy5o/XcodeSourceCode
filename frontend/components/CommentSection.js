@@ -80,7 +80,8 @@ export default function CommentSection({ carId, carOwnerId, comments, onComments
                                         <button
                                             onClick={() => handleDelete(comment.id)}
                                             disabled={deletingId === comment.id}
-                                            className="text-xs font-semibold text-red-400 hover:text-red-300 disabled:opacity-50"
+                                            aria-label={`Delete comment by ${comment.username}`}
+                                            className="min-h-[44px] text-xs font-semibold text-red-400 hover:text-red-300 disabled:opacity-50"
                                         >
                                             {deletingId === comment.id ? 'Removing...' : 'Delete'}
                                         </button>
@@ -95,16 +96,21 @@ export default function CommentSection({ carId, carOwnerId, comments, onComments
 
             {isLoggedIn ? (
                 <form onSubmit={handleSubmit} className="mt-3 flex gap-2">
+                    <label className="sr-only" htmlFor="comment-input">
+                        Add a comment
+                    </label>
                     <input
-                        className="flex-1 rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-red-500 focus:outline-none"
+                        id="comment-input"
+                        className="min-h-[44px] flex-1 rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-red-500 focus:outline-none"
                         placeholder="Add a comment..."
+                        aria-label="Add a comment"
                         value={text}
                         onChange={(e) => setText(e.target.value)}
                     />
                     <button
                         type="submit"
                         disabled={posting || !text.trim()}
-                        className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="min-h-[44px] rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                         {posting ? 'Posting...' : 'Post'}
                     </button>

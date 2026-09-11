@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Navbar from '../components/Navbar';
+import LeaderboardTable from '../components/LeaderboardTable';
+import RetryBanner from '../components/RetryBanner';
+import { useDebouncedValue } from '../hooks/useDebounce';
 import { api } from '../lib/api';
 
 const PAGE_SIZE = 25;
@@ -11,8 +14,10 @@ export default function Leaderboard() {
     const [page, setPage] = useState(1);
     const [data, setData] = useState(null);
     const [error, setError] = useState('');
+    const [reloadToken, setReloadToken] = useState(0);
 
     const [query, setQuery] = useState('');
+    const debouncedQuery = useDebouncedValue(query, 350);
     const [searchResults, setSearchResults] = useState(null);
     const [searching, setSearching] = useState(false);
 
@@ -21,28 +26,42 @@ export default function Leaderboard() {
         api.getLeaderboard(season, page, PAGE_SIZE)
             .then(setData)
             .catch((err) => setError(err.message));
-    }, [season, page]);
+    }, [season, page, reloadToken]);
 
     function handleSeasonChange(e) {
         setSeason(e.target.value);
         setPage(1);
     }
 
-    async function handleSearch(e) {
-        e.preventDefault();
-        if (!query.trim()) {
+    // Live search-as-you-type: fires once `query` has settled for 350ms
+    // rather than on every keystroke. The form's onSubmit still exists for
+    // explicit Enter/click, which just short-circuits straight to a search
+    // instead of waiting out the debounce.
+    useEffect(() => {
+        const trimmed = debouncedQuery.trim();
+        if (!trimmed) {
             setSearchResults(null);
             return;
         }
+        let cancelled = false;
         setSearching(true);
-        try {
-            const res = await api.searchUsers(query.trim());
-            setSearchResults(res.users);
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setSearching(false);
-        }
+        api.searchUsers(trimmed)
+            .then((res) => {
+                if (!cancelled) setSearchResults(res.users);
+            })
+            .catch((err) => {
+                if (!cancelled) setError(err.message);
+            })
+            .finally(() => {
+                if (!cancelled) setSearching(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [debouncedQuery]);
+
+    function handleSearch(e) {
+        e.preventDefault();
     }
 
     // Seasons are just an incrementing counter with no "list all seasons"
@@ -63,10 +82,14 @@ export default function Leaderboard() {
             <div className="mx-auto max-w-3xl px-4 py-8 text-gray-100">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <h1 className="text-2xl font-bold">Leaderboard</h1>
+                    <label className="sr-only" htmlFor="season-select">
+                        Season
+                    </label>
                     <select
+                        id="season-select"
                         value={season}
                         onChange={handleSeasonChange}
-                        className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 focus:border-red-500 focus:outline-none"
+                        className="min-h-[44px] rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 focus:border-red-500 focus:outline-none"
                     >
                         <option value="current">Current season{data && data.season ? ` (S${data.season})` : ''}</option>
                         {seasonOptions
@@ -79,16 +102,21 @@ export default function Leaderboard() {
                     </select>
                 </div>
 
-                <form onSubmit={handleSearch} className="mt-4 flex gap-2">
+                <form onSubmit={handleSearch} className="mt-4 flex gap-2" role="search">
+                    <label className="sr-only" htmlFor="leaderboard-search">
+                        Search by username
+                    </label>
                     <input
+                        id="leaderboard-search"
                         className="flex-1 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-red-500 focus:outline-none"
                         placeholder="Search by username..."
+                        aria-label="Search by username"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                     />
                     <button
                         type="submit"
-                        className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-semibold text-gray-100 transition hover:bg-gray-700"
+                        className="min-h-[44px] rounded-lg bg-gray-800 px-4 py-2 text-sm font-semibold text-gray-100 transition hover:bg-gray-700"
                     >
                         {searching ? 'Searching...' : 'Search'}
                     </button>
@@ -104,7 +132,7 @@ export default function Leaderboard() {
                                     <li key={user.id}>
                                         <button
                                             onClick={() => router.push(`/users/${user.id}`)}
-                                            className="text-sm text-gray-200 hover:text-red-400 hover:underline"
+                                            className="min-h-[44px] text-sm text-gray-200 hover:text-red-400 hover:underline"
                                         >
                                             {user.username}
                                         </button>
@@ -115,43 +143,10 @@ export default function Leaderboard() {
                     </div>
                 )}
 
-                {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
+                {error && <RetryBanner message={error} onRetry={() => setReloadToken((t) => t + 1)} />}
 
-                <div className="mt-6 overflow-x-auto rounded-xl border border-gray-700 bg-gray-900">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="border-b border-gray-800 text-left text-gray-400">
-                                <th className="px-4 py-3">#</th>
-                                <th className="px-4 py-3">Driver</th>
-                                <th className="px-4 py-3">Reg plate</th>
-                                <th className="px-4 py-3">XP</th>
-                                <th className="px-4 py-3">W / L</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {data?.leaderboard.map((row) => (
-                                <tr key={row.user_id} className="border-b border-gray-800 last:border-0">
-                                    <td className="px-4 py-3 text-gray-400">{row.rank}</td>
-                                    <td className="px-4 py-3">
-                                        <button
-                                            onClick={() => router.push(`/users/${row.user_id}`)}
-                                            className="font-medium text-gray-100 hover:text-red-400 hover:underline"
-                                        >
-                                            {row.username}
-                                        </button>
-                                    </td>
-                                    <td className="px-4 py-3 text-gray-500">{row.reg_plate}</td>
-                                    <td className="px-4 py-3">{row.total_xp}</td>
-                                    <td className="px-4 py-3">
-                                        {row.wins} / {row.losses}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    {data && data.leaderboard.length === 0 && (
-                        <p className="p-4 text-sm text-gray-500">No races have finished yet this season.</p>
-                    )}
+                <div className="mt-6">
+                    <LeaderboardTable rows={data?.leaderboard || []} />
                 </div>
 
                 {data && data.totalPages > 1 && (
@@ -159,7 +154,7 @@ export default function Leaderboard() {
                         <button
                             onClick={() => setPage((p) => Math.max(1, p - 1))}
                             disabled={page <= 1}
-                            className="rounded-lg border border-gray-700 px-3 py-1.5 text-gray-200 transition hover:border-gray-500 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="min-h-[44px] rounded-lg border border-gray-700 px-3 py-1.5 text-gray-200 transition hover:border-gray-500 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                             ← Prev
                         </button>
@@ -169,7 +164,7 @@ export default function Leaderboard() {
                         <button
                             onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
                             disabled={page >= data.totalPages}
-                            className="rounded-lg border border-gray-700 px-3 py-1.5 text-gray-200 transition hover:border-gray-500 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="min-h-[44px] rounded-lg border border-gray-700 px-3 py-1.5 text-gray-200 transition hover:border-gray-500 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                             Next →
                         </button>

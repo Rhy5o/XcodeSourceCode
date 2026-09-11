@@ -21,7 +21,8 @@ export default function ModCard({ mod, catalogEntry, canDelete = false, onDelete
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                     src={`${API_URL}${mod.photo_url}`}
-                    alt={modTypeLabel(mod.mod_type)}
+                    alt={`${modTypeLabel(mod.mod_type)} photo`}
+                    loading="lazy"
                     className="h-16 w-16 flex-shrink-0 rounded-lg object-cover"
                 />
             ) : (

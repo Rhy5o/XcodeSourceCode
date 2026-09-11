@@ -1,5 +1,6 @@
 const express = require('express');
 const seasonService = require('../services/seasonService');
+const adminStatsService = require('../services/adminStatsService');
 
 const router = express.Router();
 
@@ -18,6 +19,17 @@ router.post('/season/reset', requireAdminSecret, async (req, res, next) => {
     try {
         const newSeason = await seasonService.resetSeason();
         res.json({ season: newSeason });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// Item 14: internal live stats for /admin/stats — users online, races this
+// hour, average XP per race, most common winning car, cache/db health.
+router.get('/stats', requireAdminSecret, async (req, res, next) => {
+    try {
+        const stats = await adminStatsService.getAdminStats();
+        res.json(stats);
     } catch (err) {
         next(err);
     }

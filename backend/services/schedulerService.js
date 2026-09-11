@@ -1,5 +1,6 @@
 const cron = require('node-cron');
 const raceEngine = require('./raceEngine');
+const logger = require('../monitoring/logger');
 
 let task = null;
 
@@ -9,16 +10,14 @@ function startScheduler(intervalMinutes = 5) {
     const cronExpression = `*/${intervalMinutes} * * * *`;
 
     task = cron.schedule(cronExpression, async () => {
-        const startedAt = new Date().toISOString();
-        console.log(`[race-scheduler] cycle starting at ${startedAt}`);
+        console.log(`[race-scheduler] cycle starting at ${new Date().toISOString()}`);
         try {
-            const summary = await raceEngine.runRaceCycle(intervalMinutes);
-            console.log(
-                `[race-scheduler] cycle complete: ${summary.onlineUserCount} online user(s), ` +
-                    `${summary.matchesCreated} match(es) created`
-            );
+            // runRaceCycle logs its own summary (see raceEngine.js's call to
+            // logger.logRaceCycle) — both console output and the app log file.
+            await raceEngine.runRaceCycle(intervalMinutes);
         } catch (err) {
             console.error('[race-scheduler] cycle failed:', err.message);
+            logger.logError(err, { context: 'race_cycle' });
         }
     });
 
@@ -33,4 +32,8 @@ function stopScheduler() {
     }
 }
 
-module.exports = { startScheduler, stopScheduler };
+function isRunning() {
+    return task !== null;
+}
+
+module.exports = { startScheduler, stopScheduler, isRunning };

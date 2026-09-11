@@ -1,5 +1,6 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
+const { rateLimitGoOnline } = require('../middleware/antiCheat');
 const pool = require('../db/pool');
 const raceEngine = require('../services/raceEngine');
 
@@ -46,7 +47,7 @@ router.get('/status', requireAuth, async (req, res, next) => {
     }
 });
 
-router.put('/go-online', requireAuth, async (req, res, next) => {
+router.put('/go-online', requireAuth, rateLimitGoOnline, async (req, res, next) => {
     try {
         const carResult = await pool.query(
             `SELECT id FROM cars WHERE user_id = $1 AND is_active = true`,

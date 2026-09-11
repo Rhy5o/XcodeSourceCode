@@ -72,6 +72,10 @@ select {
     padding: 10px 16px;
     cursor: pointer;
     font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
 }
 
 .button:hover {
@@ -103,4 +107,20 @@ td {
     text-align: left;
     padding: 10px 8px;
     border-bottom: 1px solid var(--border);
+}
+
+/* Mobile responsiveness (item 12): keep a usable side gutter and prevent
+   horizontal overflow below the tablet breakpoint (768px) and further at
+   phone width (375px, iPhone 12). */
+@media (max-width: 768px) {
+    .page {
+        padding: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    nav {
+        flex-wrap: wrap;
+        row-gap: 10px;
+    }
 }

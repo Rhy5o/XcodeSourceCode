@@ -5,12 +5,19 @@ const MOD_COUNT_TARGET = 5;
 const BHP_TARGET = 400;
 const ZERO_TO_SIXTY_TARGET = 4;
 
+// All-time stats span every season a user has ever played, including ones
+// archived out of user_xp (see seasonService.resetSeason), so this sums
+// both the live and archive tables rather than just the current one.
 async function getAllTimeStats(userId) {
     const result = await pool.query(
         `SELECT COALESCE(SUM(total_xp), 0)::int AS total_xp,
                 COALESCE(SUM(wins), 0)::int AS wins,
                 COALESCE(SUM(losses), 0)::int AS losses
-         FROM user_xp WHERE user_id = $1`,
+         FROM (
+             SELECT total_xp, wins, losses FROM user_xp WHERE user_id = $1
+             UNION ALL
+             SELECT total_xp, wins, losses FROM user_xp_archive WHERE user_id = $1
+         ) combined`,
         [userId]
     );
     return result.rows[0];

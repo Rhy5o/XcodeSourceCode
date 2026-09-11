@@ -1,5 +1,6 @@
 const pool = require('../db/pool');
 const seasonService = require('./seasonService');
+const cacheService = require('./cacheService');
 
 function httpError(status, message) {
     const err = new Error(message);
@@ -37,6 +38,7 @@ async function createClan(name, description, leaderId) {
             [clan.id, leaderId]
         );
         await client.query('COMMIT');
+        await cacheService.invalidateUserProfile(leaderId);
         return clan;
     } catch (err) {
         await client.query('ROLLBACK');
@@ -64,6 +66,8 @@ async function joinClan(userId, clanId) {
         ]);
         await client.query(`UPDATE clans SET member_count = member_count + 1 WHERE id = $1`, [clanId]);
         await client.query('COMMIT');
+        await cacheService.invalidateClanStats(clanId);
+        await cacheService.invalidateUserProfile(userId);
     } catch (err) {
         await client.query('ROLLBACK');
         throw err;
@@ -89,6 +93,8 @@ async function leaveClan(userId, clanId) {
         await client.query(`DELETE FROM clan_members WHERE clan_id = $1 AND user_id = $2`, [clanId, userId]);
         await client.query(`UPDATE clans SET member_count = GREATEST(member_count - 1, 0) WHERE id = $1`, [clanId]);
         await client.query('COMMIT');
+        await cacheService.invalidateClanStats(clanId);
+        await cacheService.invalidateUserProfile(userId);
     } catch (err) {
         await client.query('ROLLBACK');
         throw err;
@@ -117,6 +123,8 @@ async function kickMember(leaderId, clanId, targetUserId) {
         if (deleteResult.rows.length === 0) throw httpError(404, 'That user is not a member of this clan');
         await client.query(`UPDATE clans SET member_count = GREATEST(member_count - 1, 0) WHERE id = $1`, [clanId]);
         await client.query('COMMIT');
+        await cacheService.invalidateClanStats(clanId);
+        await cacheService.invalidateUserProfile(targetUserId);
     } catch (err) {
         await client.query('ROLLBACK');
         throw err;
@@ -199,7 +207,7 @@ async function getClanLeaderboard(clanId) {
     return result.rows;
 }
 
-async function getClanStats(clanId) {
+async function fetchClanStats(clanId) {
     const seasonNumber = await seasonService.getCurrentSeason();
     const result = await pool.query(
         `SELECT
@@ -225,6 +233,10 @@ async function getClanStats(clanId) {
     const avgRank = rankResult.rows[0].avg_rank;
 
     return { ...stats, avgRank: avgRank !== null ? Math.round(avgRank * 10) / 10 : null };
+}
+
+async function getClanStats(clanId) {
+    return cacheService.getClanStats(clanId, () => fetchClanStats(clanId));
 }
 
 module.exports = {

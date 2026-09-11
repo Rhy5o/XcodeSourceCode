@@ -46,14 +46,14 @@ export default function ShowStatus({ status, loading, error, secondsLeft, onGoOn
                     <button
                         onClick={status.isUserOnline ? onGoOffline : onGoOnline}
                         disabled={busy}
-                        className={`rounded-lg px-4 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                        className={`min-h-[44px] rounded-lg px-4 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
                             status.isUserOnline ? 'bg-gray-700 hover:bg-gray-600' : 'bg-red-500 hover:bg-red-400'
                         }`}
                     >
                         {busy ? 'Please wait...' : status.isUserOnline ? 'Go Offline' : 'Go Online'}
                     </button>
                 ) : (
-                    <Link href="/garage" className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-400">
+                    <Link href="/garage" className="inline-flex min-h-[44px] items-center rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-400">
                         Go to Garage
                     </Link>
                 )}

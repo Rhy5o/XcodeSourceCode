@@ -99,10 +99,18 @@ export default function UserProfile() {
                             <p className="text-sm text-gray-400">Joined {formatJoinDate(user.created_at)}</p>
 
                             <div className="mt-3 flex flex-wrap items-center gap-4 text-sm">
-                                <button onClick={() => toggleList('followers')} className="text-gray-300 hover:text-red-400">
+                                <button
+                                    onClick={() => toggleList('followers')}
+                                    aria-expanded={listView === 'followers'}
+                                    className="min-h-[44px] text-gray-300 hover:text-red-400"
+                                >
                                     <strong className="text-gray-100">{followersCount}</strong> followers
                                 </button>
-                                <button onClick={() => toggleList('following')} className="text-gray-300 hover:text-red-400">
+                                <button
+                                    onClick={() => toggleList('following')}
+                                    aria-expanded={listView === 'following'}
+                                    className="min-h-[44px] text-gray-300 hover:text-red-400"
+                                >
                                     <strong className="text-gray-100">{followingCount}</strong> following
                                 </button>
                                 {clan && (

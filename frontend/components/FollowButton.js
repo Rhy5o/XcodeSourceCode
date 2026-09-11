@@ -31,7 +31,7 @@ export default function FollowButton({ userId, initialFollowing, onChange }) {
             <button
                 onClick={toggle}
                 disabled={busy}
-                className={`rounded-lg px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                className={`min-h-[44px] rounded-lg px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
                     following
                         ? 'border border-gray-700 text-gray-100 hover:border-red-500 hover:text-red-400'
                         : 'bg-red-500 text-white hover:bg-red-400'

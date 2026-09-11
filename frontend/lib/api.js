@@ -1,5 +1,9 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+const REQUEST_TIMEOUT_MS = 30000;
+const MAX_RETRIES = 2;
+const RETRY_BASE_DELAY_MS = 500;
+
 function getToken() {
     if (typeof window === 'undefined') return null;
     return window.localStorage.getItem('token');
@@ -34,7 +38,26 @@ function logout() {
     setUser(null);
 }
 
-async function apiFetch(path, options = {}) {
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function buildApiError(message, { status, retryable = false, isNetworkError = false } = {}) {
+    const err = new Error(message);
+    err.status = status;
+    err.retryable = retryable;
+    err.isNetworkError = isNetworkError;
+    return err;
+}
+
+/**
+ * One HTTP attempt with a hard 30s timeout. Returns the parsed body on
+ * success; throws a buildApiError() on any non-2xx response or network
+ * failure, marked `retryable` for the cases apiFetch's retry loop should
+ * retry (network failures and 5xx — never 4xx, since retrying a bad
+ * request/auth error just repeats the same failure).
+ */
+async function attemptFetch(path, options) {
     const token = getToken();
     const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
     const headers = {
@@ -45,14 +68,56 @@ async function apiFetch(path, options = {}) {
         ...(token ? { Authorization: `Bearer ${token}` } : {})
     };
 
-    const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    let res;
+    try {
+        res = await fetch(`${API_URL}${path}`, { ...options, headers, signal: controller.signal });
+    } catch (err) {
+        if (err.name === 'AbortError') {
+            throw buildApiError('Request timed out. Please try again.', { retryable: true, isNetworkError: true });
+        }
+        throw buildApiError('Network error — check your connection and try again.', {
+            retryable: true,
+            isNetworkError: true
+        });
+    } finally {
+        clearTimeout(timeoutId);
+    }
+
     const contentType = res.headers.get('content-type') || '';
     const body = contentType.includes('application/json') ? await res.json() : null;
 
     if (!res.ok) {
-        throw new Error((body && body.error) || `Request failed with status ${res.status}`);
+        const message = (body && body.error) || `Request failed with status ${res.status}`;
+        throw buildApiError(message, { status: res.status, retryable: res.status >= 500 });
     }
     return body;
+}
+
+/**
+ * Retries only idempotent requests (no explicit method, i.e. a plain GET) —
+ * retrying a POST/PUT/DELETE automatically risks repeating a mutation
+ * (double-follow, duplicate comment) if the first attempt actually
+ * succeeded server-side but the response was lost. Backs off exponentially:
+ * 500ms, 1000ms.
+ */
+async function apiFetch(path, options = {}) {
+    const isIdempotent = !options.method || options.method.toUpperCase() === 'GET';
+    let lastErr;
+
+    for (let attempt = 0; attempt <= (isIdempotent ? MAX_RETRIES : 0); attempt++) {
+        try {
+            return await attemptFetch(path, options);
+        } catch (err) {
+            lastErr = err;
+            const isLastAttempt = attempt === (isIdempotent ? MAX_RETRIES : 0);
+            if (!err.retryable || isLastAttempt) throw err;
+            await sleep(RETRY_BASE_DELAY_MS * 2 ** attempt);
+        }
+    }
+    throw lastErr;
 }
 
 export const api = {
@@ -118,7 +183,10 @@ export const api = {
     deleteComment: (carId, commentId) => apiFetch(`/api/cars/${carId}/comments/${commentId}`, { method: 'DELETE' }),
 
     // Comparison
-    compareStats: (car1Id, car2Id) => apiFetch(`/api/cars/compare?car1=${car1Id}&car2=${car2Id}`)
+    compareStats: (car1Id, car2Id) => apiFetch(`/api/cars/compare?car1=${car1Id}&car2=${car2Id}`),
+
+    // Admin (internal only — gated server-side by the x-admin-secret header)
+    getAdminStats: (adminSecret) => apiFetch('/api/admin/stats', { headers: { 'x-admin-secret': adminSecret } })
 };
 
 export { getToken, setToken, getUser, setUser, logout, API_URL };

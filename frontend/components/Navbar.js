@@ -12,20 +12,26 @@ const links = [
 export default function Navbar() {
     return (
         <nav
+            aria-label="Main"
             style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                rowGap: 10,
                 padding: '16px 24px',
                 borderBottom: '1px solid var(--border)'
             }}
         >
-            <Link href="/dashboard" style={{ fontWeight: 800, fontSize: 18 }}>
+            <Link
+                href="/dashboard"
+                style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, fontWeight: 800, fontSize: 18 }}
+            >
                 🏁 GridWars
             </Link>
-            <div style={{ display: 'flex', gap: 20 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
                 {links.map((link) => (
-                    <Link key={link.href} href={link.href}>
+                    <Link key={link.href} href={link.href} style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>
                         {link.label}
                     </Link>
                 ))}

@@ -1,9 +1,11 @@
 const pool = require('../db/pool');
 const seasonService = require('./seasonService');
+const cacheService = require('./cacheService');
 
-async function resolveSeasonNumber(season) {
+async function resolveSeason(season) {
+    const currentSeason = await seasonService.getCurrentSeason();
     if (season === undefined || season === null || season === 'current') {
-        return seasonService.getCurrentSeason();
+        return { seasonNumber: currentSeason, isCurrent: true };
     }
     const parsed = Number(season);
     if (!Number.isInteger(parsed) || parsed < 1) {
@@ -11,21 +13,21 @@ async function resolveSeasonNumber(season) {
         err.status = 400;
         throw err;
     }
-    return parsed;
+    return { seasonNumber: parsed, isCurrent: parsed === currentSeason };
 }
 
-async function getLeaderboard({ season = 'current', limit = 25, page = 1 } = {}) {
-    const seasonNumber = await resolveSeasonNumber(season);
-    const safeLimit = Math.min(Math.max(Number(limit) || 25, 1), 100);
-    const safePage = Math.max(Number(page) || 1, 1);
-    const offset = (safePage - 1) * safeLimit;
+async function resolveSeasonNumber(season) {
+    return (await resolveSeason(season)).seasonNumber;
+}
 
+async function fetchLeaderboard(seasonNumber, isCurrent, safeLimit, offset) {
+    const table = isCurrent ? 'user_xp' : 'user_xp_archive';
     const [totalResult, rowsResult] = await Promise.all([
-        pool.query(`SELECT COUNT(*)::int AS count FROM user_xp WHERE season_number = $1`, [seasonNumber]),
+        pool.query(`SELECT COUNT(*)::int AS count FROM ${table} WHERE season_number = $1`, [seasonNumber]),
         pool.query(
             `SELECT u.id AS user_id, u.username, u.reg_plate, x.total_xp, x.wins, x.losses,
                     RANK() OVER (ORDER BY x.total_xp DESC, x.wins DESC) AS rank
-             FROM user_xp x
+             FROM ${table} x
              JOIN users u ON u.id = x.user_id
              WHERE x.season_number = $1
              ORDER BY x.total_xp DESC, x.wins DESC
@@ -33,11 +35,31 @@ async function getLeaderboard({ season = 'current', limit = 25, page = 1 } = {})
             [seasonNumber, safeLimit, offset]
         )
     ]);
+    return { total: totalResult.rows[0].count, rows: rowsResult.rows };
+}
 
-    const total = totalResult.rows[0].count;
+async function getLeaderboard({ season = 'current', limit = 25, page = 1 } = {}) {
+    const { seasonNumber, isCurrent } = await resolveSeason(season);
+    const safeLimit = Math.min(Math.max(Number(limit) || 25, 1), 100);
+    const safePage = Math.max(Number(page) || 1, 1);
+    const offset = (safePage - 1) * safeLimit;
+
+    const loader = () => fetchLeaderboard(seasonNumber, isCurrent, safeLimit, offset);
+
+    // Only the current season's leaderboard actually changes; archived
+    // seasons are immutable history, so cache them for a full day instead
+    // of the current season's short 30s TTL — there's nothing to invalidate.
+    const { total, rows } = isCurrent
+        ? await cacheService.getLeaderboard(seasonNumber, safePage, safeLimit, loader)
+        : await cacheService.getOrSet(
+              `leaderboard:archive:${seasonNumber}:${safePage}:${safeLimit}`,
+              60 * 60 * 24,
+              loader
+          );
+
     return {
         season: seasonNumber,
-        leaderboard: rowsResult.rows,
+        leaderboard: rows,
         page: safePage,
         limit: safeLimit,
         total,
@@ -46,12 +68,13 @@ async function getLeaderboard({ season = 'current', limit = 25, page = 1 } = {})
 }
 
 async function getUserSeasonStats(userId, season = 'current') {
-    const seasonNumber = await resolveSeasonNumber(season);
+    const { seasonNumber, isCurrent } = await resolveSeason(season);
+    const table = isCurrent ? 'user_xp' : 'user_xp_archive';
     const result = await pool.query(
         `SELECT total_xp, wins, losses, rank FROM (
              SELECT user_id, total_xp, wins, losses,
                     RANK() OVER (ORDER BY total_xp DESC, wins DESC) AS rank
-             FROM user_xp WHERE season_number = $1
+             FROM ${table} WHERE season_number = $1
          ) ranked
          WHERE user_id = $2`,
         [seasonNumber, userId]

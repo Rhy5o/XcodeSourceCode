@@ -1,6 +1,9 @@
 const pool = require('../db/pool');
 const modService = require('./modService');
 const seasonService = require('./seasonService');
+const cacheService = require('./cacheService');
+const logger = require('../monitoring/logger');
+const { checkXpDelta } = require('../middleware/antiCheat');
 
 const XP_PER_WIN = 50;
 const XP_PER_LOSS = 0; // "Winners get XP. Losers get 0 XP."
@@ -102,6 +105,7 @@ async function storeMatchResult(car1Id, car2Id, winnerId, timestamp = new Date()
 }
 
 async function upsertXp(userId, seasonNumber, xpDelta, isWin) {
+    const safeXpDelta = checkXpDelta(userId, xpDelta);
     await pool.query(
         `INSERT INTO user_xp (user_id, season_number, total_xp, wins, losses)
          VALUES ($1, $2, $3, $4, $5)
@@ -110,8 +114,9 @@ async function upsertXp(userId, seasonNumber, xpDelta, isWin) {
              wins = user_xp.wins + EXCLUDED.wins,
              losses = user_xp.losses + EXCLUDED.losses,
              updated_at = now()`,
-        [userId, seasonNumber, xpDelta, isWin ? 1 : 0, isWin ? 0 : 1]
+        [userId, seasonNumber, safeXpDelta, isWin ? 1 : 0, isWin ? 0 : 1]
     );
+    await cacheService.invalidateUserProfile(userId);
 }
 
 /**
@@ -146,6 +151,7 @@ async function awardXP(winnerUserId, loserUserIds, matchId) {
  * tick (or directly, e.g. from a test or an on-demand trigger).
  */
 async function runRaceCycle(lastActiveMinutes = 5) {
+    const startedAt = new Date();
     const onlineUsers = await getOnlineUsers(lastActiveMinutes);
     const pairs = createMatches(onlineUsers);
     const results = [];
@@ -177,7 +183,13 @@ async function runRaceCycle(lastActiveMinutes = 5) {
         });
     }
 
-    return { onlineUserCount: onlineUsers.length, matchesCreated: pairs.length, results };
+    if (pairs.length > 0) {
+        await cacheService.invalidateLeaderboard();
+    }
+
+    const summary = { onlineUserCount: onlineUsers.length, matchesCreated: pairs.length, results };
+    logger.logRaceCycle({ startedAt: startedAt.toISOString(), durationMs: Date.now() - startedAt.getTime(), ...summary });
+    return summary;
 }
 
 function mapMatchRow(row, userId) {

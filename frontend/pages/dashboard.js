@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Navbar from '../components/Navbar';
 import MatchCard from '../components/MatchCard';
 import BadgeGrid from '../components/BadgeGrid';
+import RetryBanner from '../components/RetryBanner';
 import { api, getToken, getUser, logout } from '../lib/api';
 
 export default function Dashboard() {
@@ -15,14 +16,8 @@ export default function Dashboard() {
     const [seasonRank, setSeasonRank] = useState(null);
     const [error, setError] = useState('');
 
-    useEffect(() => {
-        if (!getToken()) {
-            router.replace('/login');
-            return;
-        }
-        const currentUser = getUser();
-        setUserState(currentUser);
-
+    function loadDashboard(currentUser) {
+        setError('');
         Promise.all([api.getGarage(), api.getMyMatches(), api.getUserProfile(currentUser.id)])
             .then(([carsRes, matchesRes, profileRes]) => {
                 setCars(carsRes.cars);
@@ -33,6 +28,17 @@ export default function Dashboard() {
                 setSeasonRank(profileRes.currentSeason.rank);
             })
             .catch((err) => setError(err.message));
+    }
+
+    useEffect(() => {
+        if (!getToken()) {
+            router.replace('/login');
+            return;
+        }
+        const currentUser = getUser();
+        setUserState(currentUser);
+        loadDashboard(currentUser);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [router]);
 
     const activeCar = cars.find((car) => car.is_active);
@@ -69,7 +75,7 @@ export default function Dashboard() {
                     </p>
                 )}
 
-                {error && <p className="error-text">{error}</p>}
+                {error && <RetryBanner message={error} onRetry={() => loadDashboard(user)} />}
 
                 <section className="card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

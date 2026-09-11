@@ -57,7 +57,7 @@ export default function CarCard({ car, onActivate, activating = false, linkable 
                 <button
                     onClick={handleActivateClick}
                     disabled={activating}
-                    className="mt-4 w-full rounded-lg bg-red-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="mt-4 min-h-[44px] w-full rounded-lg bg-red-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                     {activating ? 'Taking to the show...' : 'Take to the Show'}
                 </button>

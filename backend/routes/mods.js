@@ -66,7 +66,6 @@ router.delete('/:modId', requireAuth, async (req, res, next) => {
 
 // Multer errors (bad file type, too large) arrive here rather than as a
 // thrown app error, so translate them into the same 400 JSON shape.
-// eslint-disable-next-line no-unused-vars
 router.use((err, req, res, next) => {
     if (err instanceof multer.MulterError) {
         return res.status(400).json({ error: err.message });

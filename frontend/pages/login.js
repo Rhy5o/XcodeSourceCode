@@ -33,11 +33,28 @@ export default function Login() {
         <div className="page" style={{ maxWidth: 420 }}>
             <h1>Log in</h1>
             <form className="stack card" onSubmit={handleSubmit}>
-                <input className="input" type="email" placeholder="Email" value={form.email} onChange={update('email')} required />
+                <label className="sr-only" htmlFor="login-email">
+                    Email
+                </label>
                 <input
+                    id="login-email"
+                    className="input"
+                    type="email"
+                    placeholder="Email"
+                    aria-label="Email"
+                    value={form.email}
+                    onChange={update('email')}
+                    required
+                />
+                <label className="sr-only" htmlFor="login-password">
+                    Password
+                </label>
+                <input
+                    id="login-password"
                     className="input"
                     type="password"
                     placeholder="Password"
+                    aria-label="Password"
                     value={form.password}
                     onChange={update('password')}
                     required

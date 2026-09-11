@@ -38,8 +38,12 @@ export default function ModUploadForm({ catalog, onSubmit }) {
         <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-xl border border-gray-700 bg-gray-900 p-4">
             <h3 className="font-semibold text-gray-100">Add a mod</h3>
 
+            <label className="sr-only" htmlFor="mod-type-select">
+                Mod type
+            </label>
             <select
-                className="rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-red-500 focus:outline-none"
+                id="mod-type-select"
+                className="min-h-[44px] rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 focus:border-red-500 focus:outline-none"
                 value={modType}
                 onChange={(e) => setModType(e.target.value)}
             >
@@ -54,18 +58,27 @@ export default function ModUploadForm({ catalog, onSubmit }) {
                 })}
             </select>
 
+            <label className="sr-only" htmlFor="mod-description-input">
+                Description
+            </label>
             <input
-                className="rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-red-500 focus:outline-none"
+                id="mod-description-input"
+                className="min-h-[44px] rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-red-500 focus:outline-none"
                 placeholder="Description (optional)"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
             />
 
+            <label className="sr-only" htmlFor="mod-photo-input">
+                Mod photo
+            </label>
             <input
+                id="mod-photo-input"
                 type="file"
                 accept="image/jpeg,image/png,image/webp,image/gif"
                 onChange={(e) => setFile(e.target.files[0] || null)}
-                className="text-sm text-gray-400 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-800 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-gray-200 hover:file:bg-gray-700"
+                aria-label="Mod photo"
+                className="min-h-[44px] text-sm text-gray-400 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-800 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-gray-200 hover:file:bg-gray-700"
             />
 
             {error && <p className="text-sm text-red-400">{error}</p>}
@@ -73,7 +86,7 @@ export default function ModUploadForm({ catalog, onSubmit }) {
             <button
                 type="submit"
                 disabled={uploading || !modType}
-                className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-60"
+                className="min-h-[44px] rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
                 {uploading ? 'Uploading...' : 'Add Mod'}
             </button>

@@ -1,0 +1,84 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-carracing}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-carracing_dev_pw}
+      POSTGRES_DB: ${POSTGRES_DB:-carracing_dev}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-carracing}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    # Migrations are idempotent (CREATE TABLE IF NOT EXISTS / ALTER ... IF
+    # NOT EXISTS in schema.sql), so running db:migrate on every container
+    # start is safe and means `docker-compose up` alone gets you a fully
+    # migrated database — no separate manual step for local testing.
+    command: sh -c "node db/migrate.js && node server.js"
+    environment:
+      PORT: 3001
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: postgres://${POSTGRES_USER:-carracing}:${POSTGRES_PASSWORD:-carracing_dev_pw}@postgres:5432/${POSTGRES_DB:-carracing_dev}
+      JWT_SECRET: ${JWT_SECRET:-change_me}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      MATCH_INTERVAL_MINUTES: ${MATCH_INTERVAL_MINUTES:-5}
+      ADMIN_SECRET: ${ADMIN_SECRET:-change_me}
+      REDIS_URL: redis://redis:6379
+      LEADERBOARD_CACHE_TTL_SECONDS: ${LEADERBOARD_CACHE_TTL_SECONDS:-30}
+      USER_PROFILE_CACHE_TTL_SECONDS: ${USER_PROFILE_CACHE_TTL_SECONDS:-300}
+      CLAN_STATS_CACHE_TTL_SECONDS: ${CLAN_STATS_CACHE_TTL_SECONDS:-300}
+      FOLLOWER_LIST_CACHE_TTL_SECONDS: ${FOLLOWER_LIST_CACHE_TTL_SECONDS:-600}
+      GO_ONLINE_RATE_LIMIT_SECONDS: ${GO_ONLINE_RATE_LIMIT_SECONDS:-5}
+      HEALTH_CHECK_INTERVAL_MINUTES: ${HEALTH_CHECK_INTERVAL_MINUTES:-1}
+      EXTERNAL_LOG_WEBHOOK_URL: ${EXTERNAL_LOG_WEBHOOK_URL:-}
+    ports:
+      - '3001:3001'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://localhost:3001/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - backend_uploads:/app/uploads
+      - backend_logs:/app/logs
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+    ports:
+      - '3000:3000'
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  backend_uploads:
+  backend_logs:

@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import Navbar from '../../components/Navbar';
-import ClanCard from '../../components/ClanCard';
+import ClanList from '../../components/ClanList';
+import RetryBanner from '../../components/RetryBanner';
+import { useDebouncedValue } from '../../hooks/useDebounce';
 import { api, getToken, getUser } from '../../lib/api';
 
 export default function ClansIndex() {
     const [data, setData] = useState(null);
     const [error, setError] = useState('');
     const [q, setQ] = useState('');
+    const debouncedQ = useDebouncedValue(q, 350);
     const [sort, setSort] = useState('members');
     const [page, setPage] = useState(1);
 
@@ -24,17 +27,20 @@ export default function ClansIndex() {
     const [creating, setCreating] = useState(false);
     const [createError, setCreateError] = useState('');
 
-    function loadClans() {
-        setError('');
-        api.listClans({ q, sort, page, limit: 25 })
-            .then(setData)
-            .catch((err) => setError(err.message));
-    }
+    // Debounced live search: resets to page 1 whenever the settled query or
+    // sort order changes, then loads. Typing further within the 350ms window
+    // just pushes debouncedQ out further rather than firing a request per key.
+    useEffect(() => {
+        setPage(1);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [debouncedQ, sort]);
 
     useEffect(() => {
-        loadClans();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [sort, page]);
+        setError('');
+        api.listClans({ q: debouncedQ, sort, page, limit: 25 })
+            .then(setData)
+            .catch((err) => setError(err.message));
+    }, [debouncedQ, sort, page]);
 
     useEffect(() => {
         const currentUser = getToken() && getUser();
@@ -47,8 +53,13 @@ export default function ClansIndex() {
 
     function handleSearch(e) {
         e.preventDefault();
-        setPage(1);
-        loadClans();
+    }
+
+    function reload() {
+        setError('');
+        api.listClans({ q: debouncedQ, sort, page, limit: 25 })
+            .then(setData)
+            .catch((err) => setError(err.message));
     }
 
     async function handleCreate(e) {
@@ -61,7 +72,7 @@ export default function ClansIndex() {
             setName('');
             setDescription('');
             setShowCreateForm(false);
-            loadClans();
+            reload();
         } catch (err) {
             setCreateError(err.message);
         } finally {
@@ -75,7 +86,7 @@ export default function ClansIndex() {
         try {
             await api.joinClan(clanId);
             setMyClanId(clanId);
-            loadClans();
+            reload();
         } catch (err) {
             setError(err.message);
         } finally {
@@ -89,7 +100,7 @@ export default function ClansIndex() {
         try {
             await api.leaveClan(clanId);
             setMyClanId(null);
-            loadClans();
+            reload();
         } catch (err) {
             setError(err.message);
         } finally {
@@ -106,7 +117,7 @@ export default function ClansIndex() {
                     {isLoggedIn && (
                         <button
                             onClick={() => setShowCreateForm((s) => !s)}
-                            className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-400"
+                            className="min-h-[44px] rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-400"
                         >
                             Create Clan
                         </button>
@@ -118,14 +129,22 @@ export default function ClansIndex() {
                         onSubmit={handleCreate}
                         className="mt-4 flex flex-col gap-2 rounded-xl border border-gray-700 bg-gray-900 p-4"
                     >
+                        <label className="sr-only" htmlFor="clan-name">
+                            Clan name
+                        </label>
                         <input
+                            id="clan-name"
                             className="rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-red-500 focus:outline-none"
                             placeholder="Clan name"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             required
                         />
+                        <label className="sr-only" htmlFor="clan-description">
+                            Description
+                        </label>
                         <input
+                            id="clan-description"
                             className="rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-red-500 focus:outline-none"
                             placeholder="Description (optional)"
                             value={description}
@@ -135,58 +154,62 @@ export default function ClansIndex() {
                         <button
                             type="submit"
                             disabled={creating}
-                            className="self-start rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:opacity-60"
+                            className="min-h-[44px] self-start rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:opacity-60"
                         >
                             {creating ? 'Creating...' : 'Create'}
                         </button>
                     </form>
                 )}
 
-                <form onSubmit={handleSearch} className="mt-4 flex flex-wrap gap-2">
+                <form onSubmit={handleSearch} className="mt-4 flex flex-wrap gap-2" role="search">
+                    <label className="sr-only" htmlFor="clan-search">
+                        Search clans by name
+                    </label>
                     <input
-                        className="flex-1 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-red-500 focus:outline-none"
+                        id="clan-search"
+                        className="min-h-[44px] flex-1 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-red-500 focus:outline-none"
                         placeholder="Search clans by name..."
+                        aria-label="Search clans by name"
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
                     />
+                    <label className="sr-only" htmlFor="clan-sort">
+                        Sort clans
+                    </label>
                     <select
+                        id="clan-sort"
                         value={sort}
                         onChange={(e) => setSort(e.target.value)}
-                        className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 focus:border-red-500 focus:outline-none"
+                        className="min-h-[44px] rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 focus:border-red-500 focus:outline-none"
                     >
                         <option value="members">Sort by members</option>
                         <option value="xp">Sort by total XP</option>
                     </select>
                     <button
                         type="submit"
-                        className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-semibold text-gray-100 transition hover:bg-gray-700"
+                        className="min-h-[44px] rounded-lg bg-gray-800 px-4 py-2 text-sm font-semibold text-gray-100 transition hover:bg-gray-700"
                     >
                         Search
                     </button>
                 </form>
 
-                {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
+                {error && <RetryBanner message={error} onRetry={reload} />}
 
-                <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    {data?.clans.map((clan) => (
-                        <ClanCard
-                            key={clan.id}
-                            clan={clan}
-                            isMember={myClanId === clan.id}
-                            onJoin={isLoggedIn ? () => handleJoin(clan.id) : undefined}
-                            onLeave={isLoggedIn ? () => handleLeave(clan.id) : undefined}
-                            busy={busyClanId === clan.id}
-                        />
-                    ))}
-                </div>
-                {data && data.clans.length === 0 && <p className="mt-6 text-sm text-gray-500">No clans found.</p>}
+                <ClanList
+                    clans={data?.clans || []}
+                    myClanId={myClanId}
+                    busyClanId={busyClanId}
+                    onJoin={handleJoin}
+                    onLeave={handleLeave}
+                    canManage={isLoggedIn}
+                />
 
                 {data && data.totalPages > 1 && (
                     <div className="mt-6 flex items-center justify-between text-sm">
                         <button
                             onClick={() => setPage((p) => Math.max(1, p - 1))}
                             disabled={page <= 1}
-                            className="rounded-lg border border-gray-700 px-3 py-1.5 text-gray-200 transition hover:border-gray-500 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="min-h-[44px] rounded-lg border border-gray-700 px-3 py-1.5 text-gray-200 transition hover:border-gray-500 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                             ← Prev
                         </button>
@@ -196,7 +219,7 @@ export default function ClansIndex() {
                         <button
                             onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
                             disabled={page >= data.totalPages}
-                            className="rounded-lg border border-gray-700 px-3 py-1.5 text-gray-200 transition hover:border-gray-500 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="min-h-[44px] rounded-lg border border-gray-700 px-3 py-1.5 text-gray-200 transition hover:border-gray-500 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                             Next →
                         </button>
